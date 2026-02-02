@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ton:CodeBase</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Верхняя панель -->
+  <div class="top-bar">
+    <div class="resource">
+      <img src="Ton/Ton icon.png" />
+      <span id="tonValue">2000</span>
+    </div>
+    <div class="resource">
+      <img src="Ton/Energy icon.png" />
+      <span id="energyValue">2999</span>
+    </div>
+    <div class="resource">
+      <img src="Ton/Byte icon.png" />
+      <span id="byteValue">2999</span>
+    </div>
+    <div class="resource">
+      <img src="Ton/Cb icon.png" />
+      <span id="cbValue">1000</span>
+    </div>
+
+  </div>
+
+
+  <!-- Основное содержимое -->
+  <div class="content">
+    <!-- Home -->
+    <section id="home" class="page active">
+      <div class="player-card">
+        <div class="player-name">Ton:CodeBase</div>
+
+        <div class="energy-container">
+          <div class="energy-bar">
+            <div class="energy-fill"></div>
+            <p class="energy-text">⚡ 0 / 1600</p>
+          </div>
+        </div>
+
+        <button id="drinkButton" class="drink-btn">Выпить</button>
+        <img src="Ton/Home.png" alt="Hacker" class="home-image" />
+      </div>
+    </section>
+
+    <!-- Inventory -->
+    <section id="inventory" class="page">
+      <div class="inv-header">
+        <button id="autoStartBtn" class="tab-btn active">Авто Запуск</button>
+        <button id="craftBtn" class="tab-btn">Крафт инструментов</button>
+      </div>
+
+      <div class="energy-bar">
+        <div class="energy-fill"></div>
+        <span class="energy-text">⚡ 0 / 1600</span>
+      </div>
+
+      <button class="brew-btn">Выпить</button>
+
+      <div id="slotsContainer" class="slots"></div>
+
+      <div class="buy-section">
+        <button id="buySlotBtn" class="buy-btn">Купить слот (за 💎TON)</button>
+      </div>
+    </section>
+
+    <!-- Market -->
+    <section id="market" class="page">
+      <div class="market-header">
+        <button class="my-orders" id="myOrdersBtn">Мои объявления</button>
+
+        <div class="energy-bar">
+          <div class="energy-fill"></div>
+          <span class="energy-text">⚡ 0 / 1600</span>
+        </div>
+
+        <button id="drinkButton" class="drink-btn big">Выпить</button>
+      </div>
+
+      <div class="market-tabs">
+        <button class="market-tab active" data-tab="sell">Продажа</button>
+        <button class="market-tab" data-tab="buy">Покупка</button>
+      </div>
+
+      <!-- ПРОДАЖА -->
+      <div class="market-panel sell-panel active">
+
+        <div class="sell-box">
+          <p class="sell-title">Выберите ресурс:</p>
+
+          <div class="res-icons">
+            <img src="Ton/Energy icon m.png" data-market="energy" />
+            <img src="Ton/Byte icon m.png" data-market="byte" />
+            <img src="Ton/Cb icon m.png" data-market="cb" />
+          </div>
+
+          <p class="sell-desc">
+            Флор — это минимальная цена или самая низкая ставка.<br>
+            Рекомендуется выставлять цену немного выше флора.
+          </p>
+        </div>
+
+      </div>
+
+      <!-- 🔹 ПОКУПКА — НОВОЕ ОКНО -->
+      <div class="market-panel buy-panel hidden">
+        <!-- выбор ресурса -->
+        <div class="buy-res-selector">
+          <button class="buy-res-btn active" data-type="energy">
+            <img src="Ton/Energy icon.png" alt="Energy">
+          </button>
+          <button class="buy-res-btn" data-type="byte">
+            <img src="Ton/Byte icon.png" alt="Byte">
+          </button>
+          <button class="buy-res-btn" data-type="cb">
+            <img src="Ton/Cb icon.png" alt="CB">
+          </button>
+        </div>
+
+        <!-- список предложений -->
+        <div id="buyItemsContainer" class="buy-items-grid">
+          <!-- сюда JS будет подставлять карточки товаров -->
+        </div>
+      </div>
+
+
+    </section>
+
+
+    <!-- Wallet -->
+    <section id="wallet" class="page">
+      <div class="wallet-header">
+        <div class="wallet-connect">
+          <button class="wallet-id">-</button>
+          <button class="connect">Connect</button>
+        </div>
+        <p>История: <b>iD:1425516352</b></p>
+      </div>
+
+      <div class="transactions">
+        <div class="tx"><p>Вывод: 12.10 18:27</p><p>💎 4.2</p><button class="success">Успешно</button></div>
+        <div class="tx"><p>Вывод: 12.10 18:25</p><p>💎 4.0</p><button class="success">Успешно</button></div>
+        <div class="tx"><p>Вывод: 12.10 18:23</p><p>💎 2.3</p><button class="success">Успешно</button></div>
+        <div class="tx"><p>Вывод: 12.10 18:23</p><p>💎 4.3</p><button class="success">Успешно</button></div>
+        <div class="tx"><p>Вывод: 12.10 18:23</p><p>💎 4.5</p><button class="success">Успешно</button></div>
+        <div class="tx"><p>Вывод: 12.10 18:25</p><p>💎 4.0</p><button class="success">Успешно</button></div>
+        <div class="tx"><p>Вывод: 12.10 18:23</p><p>💎 2.3</p><button class="success">Успешно</button></div>
+        <div class="tx"><p>Вывод: 12.10 18:23</p><p>💎 4.3</p><button class="success">Успешно</button></div>
+        <div class="tx"><p>Вывод: 12.10 18:23</p><p>💎 4.5</p><button class="success">Успешно</button></div>
+        <div class="tx"><p>Вывод: 12.10 18:23</p><p>💎 5.3</p><button class="success">Успешно</button></div>
+        <div class="tx"><p>Вывод: 12.10 18:23</p><p>💎 4.0</p><button class="success">Успешно</button></div>
+      </div>
+      <p class="fee">С каждого вывода взимается 5%</p>
+    </section>
+  </div>
+
+  <!-- Навигация -->
+  <nav>
+    <button class="nav-btn active" data-page="home">Home</button>
+    <button class="nav-btn" data-page="inventory">Inventory</button>
+    <button class="nav-btn" data-page="market">Market</button>
+    <button class="nav-btn" data-page="wallet">Wallet</button>
+  </nav>
+
+  <!-- Окно крафта -->
+  <div id="craftModal" class="modal hidden">
+    <div class="modal-content">
+      <h2>Выберите инструмент</h2>
+      <div class="craft-grid">
+        <div class="craft-item" data-item="EnergyBar">
+          <img src="Ton/EnergyBar 1lvl.png" />
+          <p>EnergyBar</p>
+          <select class="lvl-select">
+            <option value="1">1 lvl</option>
+            <option value="2">2 lvl</option>
+            <option value="3">3 lvl</option>
+          </select>
+          <button class="craft-btn">Скрафтить</button>
+        </div>
+        <div class="craft-item" data-item="ByteMachine">
+          <img src="Ton/Byte machine 1lvl.png" />
+          <p>ByteMachine</p>
+          <select class="lvl-select">
+            <option value="1">1 lvl</option>
+            <option value="2">2 lvl</option>
+            <option value="3">3 lvl</option>
+          </select>
+          <button class="craft-btn">Скрафтить</button>
+        </div>
+        <div class="craft-item" data-item="CBBank">
+          <img src="Ton/CB Bank 1lvl.png" />
+          <p>CBBank</p>
+          <select class="lvl-select">
+            <option value="1">1 lvl</option>
+            <option value="2">2 lvl</option>
+            <option value="3">3 lvl</option>
+          </select>
+          <button class="craft-btn">Скрафтить</button>
+        </div>
+      </div>
+      <button id="closeCraft" class="close-modal">Закрыть</button>
+    </div>
+  </div>
+
+  <!-- Окно информации о крафте (одно, без дублей) -->
+  <div id="infoModal" class="hidden">
+    <div class="info-box">
+      <h2 id="infoTitle">Информация о крафте</h2>
+      <div id="infoBody" class="info-body"></div>
+      <div class="info-actions">
+        <button id="confirmCraft">Подтвердить</button>
+        <button id="closeInfo">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Окно взаимодействия с инструментом -->
+  <div id="toolModal" class="hidden">
+    <div class="tool-box">
+      <h2 id="toolTitle">Инструмент</h2>
+      <div id="toolBody" class="tool-body"></div>
+      <div class="tool-actions">
+        <button id="startTool">🚀 Запустить</button>
+        <button id="upgradeTool">⤴️ Улучшить</button>
+        <button id="closeTool">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Оповещение о крафте -->
+  <div id="craftSuccess" class="hidden">⚙️ Крафт успешен!</div>
+
+  <!-- Модалки MARKET -->
+
+  <div id="energyMarketModal" class="modal hidden">
+    <div class="market-modal">
+      <button class="market-close">&times;</button>
+      <div class="res-window">
+        <div class="res-left">
+          <div class="res-icon"><img src="Ton/Energy icon.png" alt="Energy"></div>
+          <div class="res-title">Текущий флор за 1 шт</div>
+          <div class="res-floor" data-floor="0.0012">💠 0.0012</div>
+
+        </div>
+        <div class="res-controls">
+          <input class="res-input" type="text" value="" />
+          <input class="res-input" type="text" value="0" />
+          <label class="res-check">
+            <input type="checkbox" />
+            Рассчитать автоматически по флору
+          </label>
+
+          <button class="res-sell">Продать</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Мои объявления -->
+  <div id="myOrdersModal" class="modal hidden">
+    <div class="orders-modal">
+      <button class="orders-close">&times;</button>
+      <button class="orders-title">Мои объявления</button>
+      <div id="ordersGrid" class="orders-grid"></div>
+    </div>
+  </div>
+
+  <div id="byteMarketModal" class="modal hidden">
+    <div class="market-modal">
+      <button class="market-close">&times;</button>
+      <div class="res-window">
+        <div class="res-left">
+          <div class="res-icon"><img src="Ton/Byte icon.png" alt="Byte"></div>
+          <div class="res-title">Текущий флор за 1 шт</div>
+          <div class="res-floor" data-floor="0.0019">💠 0.0019</div>
+
+        </div>
+        <div class="res-controls">
+          <input class="res-input" type="text" value="" />
+          <input class="res-input" type="text" value="0" />
+          <label class="res-check">
+            <input type="checkbox" />
+            Рассчитать автоматически по флору
+          </label>
+
+          <button class="res-sell">Продать</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="cbMarketModal" class="modal hidden">
+    <div class="market-modal">
+      <button class="market-close">&times;</button>
+      <div class="res-window">
+        <div class="res-left">
+          <div class="res-icon"><img src="Ton/Cb icon.png" alt="CB"></div>
+          <div class="res-title">Текущий флор за 1 шт</div>
+          <div class="res-floor" data-floor="0.0027">💠 0.0027</div>
+        </div>
+        <div class="res-controls">
+          <input class="res-input" type="text" value="" />
+          <input class="res-input" type="text" value="0" />
+          <label class="res-check">
+            <input type="checkbox" />
+            Рассчитать автоматически по флору
+          </label>
+
+          <button class="res-sell">Продать</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Окна "Авто Запуск" -->
+  <div id="autoStartModal" class="modal hidden">
+    <div class="auto-start-box">
+      <button class="auto-close" data-close="autoStartModal">&times;</button>
+      <h2 class="auto-title">Авто Запуск:</h2>
+      <div class="auto-workers">
+        <div class="auto-worker-card">
+          <div class="auto-avatar">
+            <img src="Ton/Logan.png" alt="Logan">
+          </div>
+          <div class="auto-worker-info">
+            <div class="auto-worker-name">Logan</div>
+            <div class="auto-worker-desc">Технарь с характером</div>
+            <div class="auto-worker-status" data-worker="logan"></div>
+          </div>
+          <button class="auto-hire-btn" data-worker="logan">Нанять</button>
+        </div>
+
+        <div class="auto-worker-card">
+          <div class="auto-avatar">
+            <img src="Ton/Jason.png" alt="Jason">
+          </div>
+          <div class="auto-worker-info">
+            <div class="auto-worker-name">Jason</div>
+            <div class="auto-worker-desc">The Elite One</div>
+            <div class="auto-worker-status" data-worker="jason"></div>
+          </div>
+          <button class="auto-hire-btn" data-worker="jason">Нанять</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="loganModal" class="modal hidden">
+    <div class="auto-start-box">
+      <button class="auto-close" data-close="loganModal">&times;</button>
+      <h2 class="auto-title">Авто Запуск:</h2>
+      <div class="auto-detail">
+        <div class="auto-avatar big">
+          <img src="Ton/Logan.png" alt="Logan">
+        </div>
+        <div class="auto-worker-info">
+          <div class="auto-worker-name">Logan</div>
+          <div class="auto-worker-desc">Цена:
+            <span class="auto-price">
+              <span>700</span>
+              <img src="Ton/Cb icon.png" alt="CB">
+            </span>
+          </div>
+          <div class="auto-worker-note">Автоматически запускает аппараты в течении 3 дней</div>
+          <div class="auto-worker-status" data-worker="logan"></div>
+        </div>
+      </div>
+      <button class="auto-hire-btn wide" data-worker="logan" data-hire="true" data-price="700" data-currency="cb">Нанять</button>
+    </div>
+  </div>
+
+  <div id="jasonModal" class="modal hidden">
+    <div class="auto-start-box">
+      <button class="auto-close" data-close="jasonModal">&times;</button>
+      <h2 class="auto-title">Авто Запуск:</h2>
+      <div class="auto-detail">
+        <div class="auto-avatar big">
+          <img src="Ton/Jason.png" alt="Jason">
+        </div>
+        <div class="auto-worker-info">
+          <div class="auto-worker-name">Jason</div>
+          <div class="auto-worker-desc">Цена:
+            <span class="auto-price">
+              <span>1</span>
+              <img src="Ton/Ton icon.png" alt="TON">
+            </span>
+          </div>
+          <div class="auto-worker-note">Автоматически запускает аппараты в течении 7 дней</div>
+          <div class="auto-worker-status" data-worker="jason"></div>
+        </div>
+      </div>
+      <button class="auto-hire-btn wide" data-worker="jason" data-hire="true" data-price="1" data-currency="ton">Нанять</button>
+    </div>
+  </div>
+
+  <!-- Окно инструмента (ДОБАВИТЬ ПЕРЕД </body>) -->
+  <div id="toolModal" class="modal hidden">
+    <div class="tool-box">
+      <h2>Инструмент</h2>
+      <div id="toolBody" class="tool-body"></div>
+      <div class="tool-actions">
+        <button id="startTool">🚀 Запустить</button>
+        <button id="upgradeTool">⤴️ Улучшить</button>
+        <button id="closeTool">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+
+</body>
+</html>
