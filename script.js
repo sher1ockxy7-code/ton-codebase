@@ -107,6 +107,7 @@ const toolBody = document.getElementById('toolBody');
 const closeTool = document.getElementById('closeTool');
 const startTool = document.getElementById('startTool');
 const upgradeTool = document.getElementById('upgradeTool');
+let currentToolIndex = null;
 
 // КОНСТАНТЫ
 const maxSlots = 10;
@@ -157,59 +158,59 @@ const craftData = {
       craft: { bytes: 1730, cb: 940 }, 
       service: { bytes: 12, cb: 9, energy: 200 }, 
       exit: { amount: 127, type: "energy", name: "energy bottles" },
-      productionTime: 10000
+      productionTime: 21600000
     },
     2: { 
       craft: { bytes: 3300, cb: 1750 }, 
       service: { bytes: 24, cb: 16, energy: 380 }, 
       exit: { amount: 260, type: "energy", name: "energy bottles" },
-      productionTime: 15000
+      productionTime: 21600000
     },
     3: { 
       craft: { bytes: 6500, cb: 3400 }, 
       service: { bytes: 46, cb: 30, energy: 740 }, 
       exit: { amount: 430, type: "energy", name: "energy bottles" },
-      productionTime: 20000
+      productionTime: 21600000
     }
   },
   ByteMachine: {
     1: { 
       craft: { bytes: 2500, cb: 1300 }, 
-      service: { energy: 280, cb: 5, bytes: 16 }, 
+      service: { bytes: 16, cb: 5, energy: 280 }, 
       exit: { amount: 75, type: "byte", name: "bytes" },
-      productionTime: 10000
+      productionTime: 21600000
     },
     2: { 
       craft: { bytes: 4800, cb: 2400 }, 
-      service: { energy: 540, cb: 12, bytes: 30 }, 
+      service: { bytes: 30, cb: 12, energy: 540 }, 
       exit: { amount: 152, type: "byte", name: "bytes" },
-      productionTime: 15000
+      productionTime: 21600000
     },
     3: { 
       craft: { bytes: 9500, cb: 4600 }, 
-      service: { energy: 1030, cb: 25, bytes: 58 }, 
+      service: { bytes: 58, cb: 25, energy: 1030 }, 
       exit: { amount: 305, type: "byte", name: "bytes" },
-      productionTime: 20000
+      productionTime: 21600000
     }
   },
   CBBank: {
     1: { 
       craft: { bytes: 2800, cb: 1500 }, 
-      service: { energy: 300, bytes: 32, cb: 17 }, 
+      service: { bytes: 32, cb: 17, energy: 300 }, 
       exit: { amount: 72, type: "cb", name: "CB Bucks" },
-      productionTime: 10000
+      productionTime: 21600000
     },
     2: { 
       craft: { bytes: 5600, cb: 2900 }, 
-      service: { energy: 580, bytes: 62, cb: 32 }, 
+      service: { bytes: 62, cb: 32, energy: 580 }, 
       exit: { amount: 145, type: "cb", name: "CB Bucks" },
-      productionTime: 15000
+      productionTime: 21600000
     },
     3: { 
       craft: { bytes: 11200, cb: 5800 }, 
-      service: { energy: 1050, bytes: 120, cb: 62 }, 
+      service: { bytes: 120, cb: 62, energy: 1050 }, 
       exit: { amount: 292, type: "cb", name: "CB Bucks" },
-      productionTime: 20000
+      productionTime: 21600000
     }
   }
 };
@@ -225,8 +226,125 @@ function saveAll() {
   updateAllResources();
 }
 
+// === ПРОИЗВОДСТВО (6 часов) ===
+let productionState = JSON.parse(localStorage.getItem("productionState") || "[]");
+
+function saveProductionState() {
+  localStorage.setItem("productionState", JSON.stringify(productionState));
+}
+
+function normalizeProductionState() {
+  if (!Array.isArray(productionState)) productionState = [];
+  while (productionState.length < slots) productionState.push(null);
+  if (productionState.length > slots) productionState = productionState.slice(0, slots);
+  for (let i = 0; i < productionState.length; i++) {
+    const entry = productionState[i];
+    if (!inventory[i]) {
+      productionState[i] = null;
+      continue;
+    }
+    if (!entry || typeof entry !== "object" || !Number.isFinite(entry.endsAt)) {
+      productionState[i] = null;
+    }
+  }
+  saveProductionState();
+}
+
+function formatTimer(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const hh = String(h);
+  const mm = String(m).padStart(2, "0");
+  const ss = String(s).padStart(2, "0");
+  return `${hh}:${mm}:${ss}`;
+}
+
+function isProducing(index) {
+  const entry = productionState[index];
+  return !!entry && Number.isFinite(entry.endsAt) && Date.now() < entry.endsAt;
+}
+
+function finishProduction(index) {
+  const entry = productionState[index];
+  const item = inventory[index];
+  if (!entry || !item) return;
+  const data = craftData[item.name][item.lvl];
+  resources[data.exit.type] = (resources[data.exit.type] || 0) + data.exit.amount;
+  productionState[index] = null;
+  saveProductionState();
+  updateAllResources();
+  showProductionNotification(item, data.exit.amount, data.exit.name);
+}
+
+function showProductionNotification(item, amount, name) {
+  const note = document.createElement("div");
+  note.className = "production-notification";
+  note.innerHTML = `
+    <div class="production-notification-content">
+      <div class="production-notification-icon">✅</div>
+      <div class="production-notification-text">
+        <p>${item.name} ${item.lvl} lvl</p>
+        <p>Готово: +${amount} ${name}</p>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(note);
+  setTimeout(() => note.remove(), 3200);
+}
+
+function showToast(message, type = "info") {
+  const note = document.createElement("div");
+  note.className = "production-notification";
+  if (type === "error") {
+    note.style.background = "linear-gradient(135deg, #b00020, #ff4d4f)";
+  } else if (type === "success") {
+    note.style.background = "linear-gradient(135deg, #00b894, #00a8ff)";
+  } else {
+    note.style.background = "linear-gradient(135deg, #3949ab, #5c6bc0)";
+  }
+  note.innerHTML = `
+    <div class="production-notification-content">
+      <div class="production-notification-icon">${type === "error" ? "❌" : "✅"}</div>
+      <div class="production-notification-text">
+        <p>${message}</p>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(note);
+  setTimeout(() => note.remove(), 2600);
+}
+
+function updateProductionTimers() {
+  for (let i = 0; i < productionState.length; i++) {
+    const entry = productionState[i];
+    if (!entry || !Number.isFinite(entry.endsAt)) continue;
+    const remaining = entry.endsAt - Date.now();
+    if (remaining <= 0) {
+      finishProduction(i);
+    }
+  }
+
+  document.querySelectorAll(".timer-pill[data-slot]").forEach(node => {
+    const index = parseInt(node.dataset.slot);
+    if (!Number.isFinite(index)) return;
+    if (!isProducing(index)) {
+      node.textContent = "";
+      node.classList.add("hidden");
+      return;
+    }
+    const entry = productionState[index];
+    node.classList.remove("hidden");
+    node.textContent = formatTimer(entry.endsAt - Date.now());
+  });
+}
+
+normalizeProductionState();
+
 // === ОТРИСОВКА СЛОТОВ ===
 function renderSlots() {
+  normalizeProductionState();
   slotsContainer.innerHTML = "";
 
   for (let i = 0; i < slots; i++) {
@@ -240,10 +358,26 @@ function renderSlots() {
       img.src = item.img;
       slot.appendChild(img);
 
+      const meta = document.createElement("div");
+      meta.className = "slot-meta";
+
       const lvl = document.createElement("div");
-      lvl.classList.add("level");
+      lvl.className = "slot-pill level-pill";
       lvl.textContent = `${item.lvl} lvl`;
-      slot.appendChild(lvl);
+      meta.appendChild(lvl);
+
+      const timer = document.createElement("div");
+      timer.className = "slot-pill timer-pill hidden";
+      timer.dataset.slot = i;
+      meta.appendChild(timer);
+
+      slot.appendChild(meta);
+
+      if (isProducing(i)) {
+        slot.classList.add("producing");
+        timer.classList.remove("hidden");
+        timer.textContent = formatTimer(productionState[i].endsAt - Date.now());
+      }
     } else {
       const plus = document.createElement("div");
       plus.classList.add("plus-slot");
@@ -257,7 +391,141 @@ function renderSlots() {
 
   // Обновляем кнопку покупки слота
   updateBuySlotButton();
+  updateProductionTimers();
 }
+
+function startProductionAtIndex(index) {
+  if (!Number.isFinite(index)) {
+    if (Number.isFinite(currentToolIndex)) {
+      index = currentToolIndex;
+    } else {
+      showToast("Сначала выберите инструмент в слоте.", "error");
+      return;
+    }
+  }
+  const item = inventory[index];
+  if (!item) {
+    showToast("В слоте нет инструмента.", "error");
+    return;
+  }
+  const data = craftData[item.name][item.lvl];
+  const service = data.service;
+
+  if (isProducing(index)) {
+    showToast(`Уже запущено. Осталось: ${formatTimer(productionState[index].endsAt - Date.now())}`, "error");
+    return;
+  }
+
+  if (resources.byte < service.bytes || resources.cb < service.cb || currentEnergy < service.energy) {
+    showToast(
+      `Недостаточно ресурсов: нужно ${service.bytes} Bytes, ${service.cb} CB, ${service.energy} Energy`,
+      "error"
+    );
+    return;
+  }
+
+  const warnText =
+    `Внимание!\n` +
+    `Запуск ${item.name} ${item.lvl} lvl на 6 часов.\n` +
+    `Будет списано: ${service.bytes} Bytes, ${service.cb} CB, ${service.energy} Energy`;
+  let okToStart = true;
+  if (typeof window.confirm === "function") {
+    try {
+      okToStart = confirm(warnText);
+    } catch (e) {
+      okToStart = true;
+    }
+  }
+  if (!okToStart) {
+    showToast("Запуск отменен.", "info");
+    return;
+  }
+
+  resources.byte -= service.bytes;
+  resources.cb -= service.cb;
+  currentEnergy = Math.max(0, currentEnergy - service.energy);
+  localStorage.setItem("currentEnergy", currentEnergy);
+  updateEnergyUI();
+
+  const now = Date.now();
+  productionState[index] = {
+    endsAt: now + data.productionTime
+  };
+  saveProductionState();
+  renderSlots();
+  if (toolModal) toolModal.classList.add("hidden");
+  showToast(`Запуск: ${item.name} ${item.lvl} lvl`, "success");
+}
+
+window.startProductionAtIndex = startProductionAtIndex;
+
+if (startTool && toolModal) {
+  startTool.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const index = parseInt(toolModal.dataset.currentIndex || "", 10);
+    startProductionAtIndex(index);
+  });
+}
+
+// Резервный обработчик, если кнопка была пересоздана/не найдена при инициализации
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("#startTool");
+  if (!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const modal = document.getElementById("toolModal");
+  const index = modal ? parseInt(modal.dataset.currentIndex || "", 10) : NaN;
+  startProductionAtIndex(index);
+});
+
+// Ловим клик в фазе захвата на случай блокировки всплытия
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("#startTool");
+  if (!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const modal = document.getElementById("toolModal");
+  const index = modal ? parseInt(modal.dataset.currentIndex || "", 10) : NaN;
+  startProductionAtIndex(index);
+}, true);
+
+// Делегирование по data-action, если id-обработчики не сработали
+document.addEventListener("pointerdown", (e) => {
+  const btn = e.target.closest("button[data-action]");
+  if (!btn) return;
+  const action = btn.dataset.action;
+  const modal = document.getElementById("toolModal");
+  const index = modal ? parseInt(modal.dataset.currentIndex || "", 10) : NaN;
+  if (action === "start") {
+    e.preventDefault();
+    startProductionAtIndex(index);
+  }
+  if (action === "upgrade") {
+    e.preventDefault();
+    window.__upgradeToolClick && window.__upgradeToolClick();
+  }
+});
+
+// Inline-fallback handlers for кнопок (на случай блокировки событий)
+window.__startToolClick = function () {
+  const modal = document.getElementById("toolModal");
+  const index = modal ? parseInt(modal.dataset.currentIndex || "", 10) : NaN;
+  startProductionAtIndex(index);
+};
+
+window.__upgradeToolClick = function () {
+  if (toolBody) {
+    toolBody.innerHTML = `
+      <div class="tool-info">
+        <p><b>Улучшение</b></p>
+        <p>Система улучшения будет добавлена позже.</p>
+      </div>
+    `;
+  }
+  showToast("Улучшение будет добавлено позже.", "info");
+  if (toolModal) toolModal.classList.add("hidden");
+};
 
 // === ПОКУПКА СЛОТА (ИСПРАВЛЕННАЯ) ===
 function updateBuySlotButton() {
@@ -345,7 +613,7 @@ confirmCraftBtn.addEventListener("click", () => {
 
   // Проверяем достаточно ли ресурсов для крафта
   if (resources.byte < cost.bytes || resources.cb < cost.cb) {
-    alert(`❌ Недостаточно ресурсов для крафта!\nНужно: ${cost.bytes} Byte, ${cost.cb} CB`);
+    showToast(`Недостаточно ресурсов для крафта: нужно ${cost.bytes} Bytes, ${cost.cb} CB`, "error");
     return;
   }
 
@@ -405,19 +673,31 @@ slotsContainer.addEventListener("click", (e) => {
     return;
   }
 
+  const data = craftData[item.name][item.lvl];
+  const service = data.service;
+  const producing = isProducing(index);
+  const remaining = producing ? formatTimer(productionState[index].endsAt - Date.now()) : null;
+
   toolBody.innerHTML = `
-    <p><b>${item.name}</b> - Уровень ${item.lvl}</p>
-    <p>Этот инструмент уже создан.</p>
-    <p>Для производства нужно добавить систему запуска.</p>
+    <div class="tool-info">
+      <p><b>${item.name}</b> - Уровень ${item.lvl}</p>
+      <div class="resource-cost">
+        <h3>Service (на запуск)</h3>
+        <p>Bytes: ${service.bytes}</p>
+        <p>CB: ${service.cb}</p>
+        <p>Energy: ${service.energy}</p>
+      </div>
+      <div class="production-output">
+        <h3>Выход (через 6 часов)</h3>
+        <p>${data.exit.amount} ${data.exit.name}</p>
+      </div>
+      ${producing ? `<div class="current-production"><h3>Осталось</h3><p>${remaining}</p></div>` : ""}
+    </div>
   `;
 
   toolModal.classList.remove("hidden");
   toolModal.dataset.currentIndex = index;
-
-  startTool.onclick = function() {
-    alert("🚀 Система производства будет добавлена позже!");
-    toolModal.classList.add("hidden");
-  };
+  currentToolIndex = index;
 
   upgradeTool.onclick = function() {
     alert("⤴️ Система улучшения будет добавлена позже!");
@@ -1021,6 +1301,8 @@ document.addEventListener('DOMContentLoaded', function() {
   updateAllResources();
   renderSlots();
   updateBuySlotButton();
+  updateProductionTimers();
+  setInterval(updateProductionTimers, 1000);
 });
 // === РАСЧЕТ ПРОДАЖИ ПО ФЛОРУ (МОДАЛКИ MARKET) ===
 function setupFloorCalc(modal) {

@@ -184,6 +184,38 @@ body {
   color: #ccc;
 }
 
+.slot-meta {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.slot-pill {
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1;
+  color: #fff;
+  background: #2a3038;
+  min-width: 58px;
+  text-align: center;
+}
+
+.level-pill {
+  background: #7b0a70;
+}
+
+.timer-pill.hidden {
+  display: none;
+}
+
 .plus-slot {
   font-size: 36px;
   color: #aaa;
