@@ -26,16 +26,10 @@ if (localStorage.getItem('resources')) {
 }
 
 function updateAllResources() {
-  const format2 = (v) => {
-    const n = Number(v);
-    if (!Number.isFinite(n)) return "0";
-    const s = n.toFixed(2).replace(/\.?0+$/, "");
-    return s.replace(".", ",");
-  };
-  document.getElementById('tonValue').textContent = format2(resources.ton);
-  document.getElementById('energyValue').textContent = format2(resources.energy);
-  document.getElementById('byteValue').textContent = format2(resources.byte);
-  document.getElementById('cbValue').textContent = format2(resources.cb);
+  document.getElementById('tonValue').textContent = resources.ton;
+  document.getElementById('energyValue').textContent = resources.energy;
+  document.getElementById('byteValue').textContent = resources.byte;
+  document.getElementById('cbValue').textContent = resources.cb;
   localStorage.setItem('resources', JSON.stringify(resources));
 }
 
@@ -700,7 +694,7 @@ slotsContainer.addEventListener("click", (e) => {
   currentToolIndex = index;
 
   upgradeTool.onclick = function() {
-    alert("⤴️ Система улучшения будет добавлена позже!");
+    alert("⤴️ Система Улучшения будет добавлена позже!");
     toolModal.classList.add("hidden");
   };
 
@@ -709,18 +703,13 @@ slotsContainer.addEventListener("click", (e) => {
   };
 });
 
-// === АВТОЗАПУСК: открытие окна и переход к работникам ===
+// === АВТОЗАПУСК: модалки + найм ===
 const autoStartModal = document.getElementById("autoStartModal");
 const loganModal = document.getElementById("loganModal");
 const jasonModal = document.getElementById("jasonModal");
 let hireButtons = document.querySelectorAll(".auto-hire-btn[data-worker]");
 
 let hiredWorkers = JSON.parse(localStorage.getItem("hiredWorkers") || "{}");
-
-const WORKER_CONFIG = {
-  logan: { name: "Logan", days: 3 },
-  jason: { name: "Jason", days: 7 }
-};
 
 function openModal(modal) {
   if (modal) modal.classList.remove("hidden");
@@ -740,73 +729,6 @@ function getCurrencyLabel(type) {
   return type;
 }
 
-function normalizeHiredWorkers() {
-  const now = Date.now();
-  let changed = false;
-  Object.keys(hiredWorkers || {}).forEach(worker => {
-    const cfg = WORKER_CONFIG[worker];
-    if (!cfg) return;
-    const data = hiredWorkers[worker];
-    if (data === true) {
-      delete hiredWorkers[worker];
-      changed = true;
-      return;
-    }
-    if (!data || typeof data !== "object") {
-      delete hiredWorkers[worker];
-      changed = true;
-      return;
-    }
-    if (!Number.isFinite(data.endsAt)) {
-      delete hiredWorkers[worker];
-      changed = true;
-    }
-  });
-  if (changed) saveHiredWorkers();
-}
-
-function isWorkerActive(worker) {
-  const data = hiredWorkers[worker];
-  return !!data && Number.isFinite(data.endsAt) && Date.now() < data.endsAt;
-}
-
-function getRemainingHours(worker) {
-  const data = hiredWorkers[worker];
-  if (!data || !Number.isFinite(data.endsAt)) return 0;
-  const ms = data.endsAt - Date.now();
-  if (ms <= 0) return 0;
-  return Math.ceil(ms / (60 * 60 * 1000));
-}
-
-function cleanupExpiredWorkers() {
-  let changed = false;
-  Object.keys(hiredWorkers || {}).forEach(worker => {
-    if (!isWorkerActive(worker)) {
-      delete hiredWorkers[worker];
-      changed = true;
-    }
-  });
-  if (changed) saveHiredWorkers();
-}
-
-function updateWorkerStatusUI(worker) {
-  const nodes = document.querySelectorAll(`.auto-worker-status[data-worker="${worker}"]`);
-  if (!nodes.length) return;
-  const active = isWorkerActive(worker);
-  const hoursLeft = getRemainingHours(worker);
-  nodes.forEach(node => {
-    if (active) {
-      node.classList.remove("inactive");
-      node.textContent = `Работает в авто-запуске. Осталось: ${hoursLeft} ч.`;
-    } else {
-      node.classList.add("inactive");
-      node.textContent = "Не работает";
-    }
-  });
-}
-
-normalizeHiredWorkers();
-
 function setHiredState(worker, hired) {
   hireButtons.forEach(btn => {
     if (btn.dataset.worker !== worker) return;
@@ -820,23 +742,38 @@ function setHiredState(worker, hired) {
       btn.disabled = false;
     }
   });
+
+  document.querySelectorAll(`.auto-worker-status[data-worker="${worker}"]`).forEach(node => {
+    node.textContent = hired ? "Нанят" : "";
+  });
 }
 
 function refreshHiredUI() {
-  cleanupExpiredWorkers();
   hireButtons = document.querySelectorAll(".auto-hire-btn[data-worker]");
-  setHiredState("logan", isWorkerActive("logan"));
-  setHiredState("jason", isWorkerActive("jason"));
-  updateWorkerStatusUI("logan");
-  updateWorkerStatusUI("jason");
-  bindHireButtons();
+  setHiredState("logan", !!hiredWorkers.logan);
+  setHiredState("jason", !!hiredWorkers.jason);
 }
 
-function handleHireClick(btn) {
-  if (!btn || btn.disabled) return;
+document.addEventListener("click", (e) => {
+  const openBtn = e.target.closest("#autoStartBtn");
+  if (openBtn) {
+    openModal(autoStartModal);
+    return;
+  }
+
+  const closeBtn = e.target.closest(".auto-close");
+  if (closeBtn) {
+    const id = closeBtn.dataset.close;
+    if (!id) return;
+    const modal = document.getElementById(id);
+    closeModal(modal);
+    return;
+  }
+
+  const btn = e.target.closest(".auto-hire-btn[data-worker]");
+  if (!btn) return;
+
   const worker = btn.dataset.worker;
-  const cfg = WORKER_CONFIG[worker];
-  if (!cfg) return;
   const isHire = btn.dataset.hire === "true";
   if (!isHire) {
     closeModal(autoStartModal);
@@ -845,8 +782,8 @@ function handleHireClick(btn) {
     return;
   }
 
-  if (isWorkerActive(worker)) {
-    alert(`Этот работник уже нанят.\nОсталось: ${getRemainingHours(worker)} ч.`);
+  if (hiredWorkers[worker]) {
+    alert("Этот работник уже нанят.");
     return;
   }
 
@@ -860,59 +797,16 @@ function handleHireClick(btn) {
     return;
   }
 
-  if (!confirm(`Внимание!\nНанять ${cfg.name} на ${cfg.days} дн. за ${price} ${getCurrencyLabel(currency)}?\nОплата спишется сразу.`)) {
+  if (!confirm(`Нанять ${worker === "logan" ? "Logan" : "Jason"} за ${price} ${getCurrencyLabel(currency)}?`)) {
     return;
   }
 
   resources[currency] = balance - price;
   updateAllResources();
 
-  const now = Date.now();
-  hiredWorkers[worker] = {
-    hiredAt: now,
-    endsAt: now + cfg.days * 24 * 60 * 60 * 1000
-  };
+  hiredWorkers[worker] = true;
   saveHiredWorkers();
   refreshHiredUI();
-  alert(`✅ ${cfg.name} нанят.\nОн работает в авто-запуске.\nОсталось: ${getRemainingHours(worker)} ч.`);
-}
-
-function bindHireButtons() {
-  hireButtons.forEach(btn => {
-    if (btn.dataset.bound === "true") return;
-    btn.dataset.bound = "true";
-    btn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      handleHireClick(btn);
-    });
-  });
-}
-
-document.addEventListener("click", (e) => {
-  const openBtn = e.target.closest("#autoStartBtn");
-  if (openBtn) {
-    openModal(autoStartModal);
-    return;
-  }
-
-  const closeBtn = e.target.closest(".auto-close, .auto-hire-btn[data-close]");
-  if (closeBtn) {
-    const id = closeBtn.dataset.close;
-    if (!id) return;
-    const modal = document.getElementById(id);
-    closeModal(modal);
-    return;
-  }
-
-  const btn = e.target.closest(".auto-hire-btn[data-worker]");
-  if (!btn) return;
-  handleHireClick(btn);
-});
-
-document.addEventListener("DOMContentLoaded", () => {
-  refreshHiredUI();
-  setInterval(refreshHiredUI, 30000);
 });
 
 // === MARKET: иконки → модалки ===
@@ -1230,18 +1124,10 @@ document.addEventListener("click", (e) => {
           <span class="buy-amount">${offer.amount}</span>
           <span class="buy-price">${offer.price}</span>
         </div>
-        <button class="buy-card-btn" data-type="${type}" data-amount="${offer.amount}" data-price="${offer.price}">Купить</button>
+        <button class="buy-card-btn">Купить</button>
       `;
       buyList.appendChild(card);
     });
-  }
-
-  function removeOffer(type, amount, price) {
-    const list = buyOffers[type] || [];
-    const index = list.findIndex(o => o.amount === amount && o.price === price);
-    if (index !== -1) {
-      list.splice(index, 1);
-    }
   }
 
   renderBuyItems("energy");
@@ -1269,30 +1155,6 @@ document.addEventListener("click", (e) => {
       renderBuyItems(btn.dataset.type);
     });
   });
-
-  // покупка ресурса за TON
-  buyList.addEventListener("click", (e) => {
-    const btn = e.target.closest(".buy-card-btn");
-    if (!btn) return;
-
-    const type = btn.dataset.type;
-    const amount = parseFloat(btn.dataset.amount);
-    const price = parseFloat(btn.dataset.price);
-
-    if (!type || !Number.isFinite(amount) || !Number.isFinite(price)) return;
-
-    if (resources.ton < price) {
-      alert(`❌ Недостаточно TON!\nНужно: ${price}\nУ вас: ${resources.ton}`);
-      return;
-    }
-
-    resources.ton -= price;
-    resources[type] = (resources[type] || 0) + amount;
-    updateAllResources();
-
-    removeOffer(type, amount, price);
-    renderBuyItems(type);
-  });
 })();
 
 // === ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ ===
@@ -1303,6 +1165,7 @@ document.addEventListener('DOMContentLoaded', function() {
   updateBuySlotButton();
   updateProductionTimers();
   setInterval(updateProductionTimers, 1000);
+  refreshHiredUI();
 });
 // === РАСЧЕТ ПРОДАЖИ ПО ФЛОРУ (МОДАЛКИ MARKET) ===
 function setupFloorCalc(modal) {
@@ -1322,7 +1185,6 @@ function setupFloorCalc(modal) {
     const num = parseFloat(String(raw).replace(",", "."));
     return Number.isFinite(num) ? num : 0;
   }
-
   function recalc() {
     if (!checkbox.checked) return;
     const qty = parseFloat(String(qtyInput.value).replace(",", "."));
