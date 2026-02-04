@@ -279,34 +279,23 @@ body {
 .wallet-connect {
   display: flex;
   justify-content: center;
-  margin-top: 6px;
-}
-
-.wallet-connect #ton-connect {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-}
-
-.wallet-connect #ton-connect button {
-  border-radius: 999px;
-  padding: 10px 22px;
-  min-width: 230px;
-  max-width: 100%;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .wallet-actions {
   display: flex;
   justify-content: center;
-  gap: 12px;
-  margin-top: 12px;
+  gap: 10px;
+  margin-top: 10px;
+  flex-wrap: wrap;
 }
 
 .wallet-action {
   border: none;
-  border-radius: 14px;
-  padding: 8px 16px;
-  background: #26364f;
+  border-radius: 10px;
+  padding: 8px 14px;
+  background: #2a3c57;
   color: white;
   font-weight: 600;
   cursor: pointer;
