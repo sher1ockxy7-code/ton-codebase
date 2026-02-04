@@ -1717,11 +1717,9 @@ document.addEventListener("DOMContentLoaded", function() {
 
 // === Wallet actions ===
 (() => {
-  const depositBtn = document.getElementById("depositBtn");
-  const withdrawBtn = document.getElementById("withdrawBtn");
   const depositModal = document.getElementById("depositModal");
   const withdrawModal = document.getElementById("withdrawModal");
-  if (!depositBtn || !withdrawBtn || !depositModal || !withdrawModal) return;
+  if (!depositModal || !withdrawModal) return;
 
   function openModal(modal) {
     modal.classList.remove("hidden");
@@ -1732,90 +1730,94 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   }
 
-  function bindQuick(modal) {
+  function addQuickAmount(btn) {
+    const modal = btn.closest(".modal");
+    if (!modal) return;
     const input = modal.querySelector(".wallet-input");
     if (!input) return;
-    modal.querySelectorAll(".wallet-quick-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const add = parseFloat(btn.dataset.add || "0");
-        if (!Number.isFinite(add)) return;
-        const current = parseFloat(String(input.value || "").replace(",", "."));
-        const base = Number.isFinite(current) ? current : 0;
-        input.value = base + add;
-      });
-    });
+    const add = parseFloat(btn.dataset.add || "0");
+    if (!Number.isFinite(add)) return;
+    const current = parseFloat(String(input.value || "").replace(",", "."));
+    const base = Number.isFinite(current) ? current : 0;
+    input.value = base + add;
   }
 
-  bindQuick(depositModal);
-  bindQuick(withdrawModal);
-
-  depositBtn.addEventListener("click", () => openModal(depositModal));
-  withdrawBtn.addEventListener("click", () => {
-    openModal(withdrawModal);
-    const msg = "\u0421 \u043a\u0430\u0436\u0434\u043e\u0433\u043e \u0432\u044b\u0432\u043e\u0434\u0430 \u0432\u0437\u0438\u043c\u0430\u0435\u0442\u0441\u044f 5%";
-    if (typeof showToast === "function") {
-      showToast(msg, "info");
-    } else {
-      alert(msg);
-    }
-  });
-
-  [depositModal, withdrawModal].forEach((modal) => {
-    const closeBtn = modal.querySelector(".wallet-close");
-    if (closeBtn) {
-      closeBtn.addEventListener("click", () => {
-        modal.classList.add("hidden");
-      });
-    }
-
-    const submit = modal.querySelector(".wallet-submit");
-    if (!submit) return;
-    submit.addEventListener("click", () => {
-      const input = modal.querySelector(".wallet-input");
-      const raw = input ? String(input.value || "").replace(",", ".") : "";
-      const amount = parseFloat(raw);
-      if (!Number.isFinite(amount) || amount <= 0) {
-        const msg = "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0441\u0443\u043c\u043c\u0443";
-        if (typeof showToast === "function") {
-          showToast(msg, "error");
-        } else {
-          alert(msg);
-        }
-        return;
-      }
-
-      const balance = Number(resources.ton || 0);
-      if (!Number.isFinite(balance) || balance < amount) {
-        const msg = "\u041d\u0435\u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e TON";
-        if (typeof showToast === "function") {
-          showToast(msg, "error");
-        } else {
-          alert(msg);
-        }
-        return;
-      }
-
-      const newBalance = Number((balance - amount).toFixed(4));
-      resources.ton = newBalance;
-      updateAllResources();
-
-      if (input) input.value = "";
-      modal.classList.add("hidden");
-
-      const msg = `\u0421\u043f\u0438\u0441\u0430\u043d\u043e: ${amount} TON`;
+  function handleSubmit(modal) {
+    const input = modal.querySelector(".wallet-input");
+    const raw = input ? String(input.value || "").replace(",", ".") : "";
+    const amount = parseFloat(raw);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      const msg = "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0441\u0443\u043c\u043c\u0443";
       if (typeof showToast === "function") {
-        showToast(msg, "success");
+        showToast(msg, "error");
       } else {
         alert(msg);
       }
-    });
-  });
+      return;
+    }
 
-  // Fallback: close by delegation (на случай, если кнопка пересоздаётся)
+    const balance = Number(resources.ton || 0);
+    if (!Number.isFinite(balance) || balance < amount) {
+      const msg = "\u041d\u0435\u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e TON";
+      if (typeof showToast === "function") {
+        showToast(msg, "error");
+      } else {
+        alert(msg);
+      }
+      return;
+    }
+
+    const newBalance = Number((balance - amount).toFixed(4));
+    resources.ton = newBalance;
+    updateAllResources();
+
+    if (input) input.value = "";
+    modal.classList.add("hidden");
+
+    const msg = `\u0421\u043f\u0438\u0441\u0430\u043d\u043e: ${amount} TON`;
+    if (typeof showToast === "function") {
+      showToast(msg, "success");
+    } else {
+      alert(msg);
+    }
+  }
+
   document.addEventListener("click", (e) => {
-    const btn = e.target.closest(".wallet-close");
-    if (!btn) return;
-    const modal = btn.closest(".modal");
-    if (modal) modal.classList.add("hidden");
+    const depositBtn = e.target.closest("#depositBtn");
+    if (depositBtn) {
+      openModal(depositModal);
+      return;
+    }
+
+    const withdrawBtn = e.target.closest("#withdrawBtn");
+    if (withdrawBtn) {
+      openModal(withdrawModal);
+      const msg = "С каждого вывода взимается 5%";
+      if (typeof showToast === "function") {
+        showToast(msg, "info");
+      } else {
+        alert(msg);
+      }
+      return;
+    }
+
+    const closeBtn = e.target.closest(".wallet-close");
+    if (closeBtn) {
+      const modal = closeBtn.closest(".modal");
+      if (modal) modal.classList.add("hidden");
+      return;
+    }
+
+    const quickBtn = e.target.closest(".wallet-quick-btn");
+    if (quickBtn) {
+      addQuickAmount(quickBtn);
+      return;
+    }
+
+    const submitBtn = e.target.closest(".wallet-submit");
+    if (submitBtn) {
+      const modal = submitBtn.closest(".modal");
+      if (modal) handleSubmit(modal);
+    }
   });
 })();
