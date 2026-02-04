@@ -1686,3 +1686,88 @@ function setupFloorCalc(modal) {
 document.addEventListener("DOMContentLoaded", function() {
   document.querySelectorAll(".market-modal").forEach(setupFloorCalc);
 });
+
+// === TON CONNECT (привязка кошелька по клику на "-") ===
+(() => {
+  const walletIdBtn = document.getElementById("walletIdBtn") || document.querySelector(".wallet-id");
+  const connectBtn = document.getElementById("walletConnectBtn") || document.querySelector(".connect");
+  if (!walletIdBtn || !connectBtn) return;
+
+  const TonConnectUI =
+    (window.TON_CONNECT_UI && window.TON_CONNECT_UI.TonConnectUI) ||
+    window.TonConnectUI;
+  if (!TonConnectUI) {
+    console.warn("TonConnect UI не загружен.");
+    return;
+  }
+
+  function resolveManifestUrl() {
+    if (location.protocol === "file:") return "tonconnect-manifest.json";
+    const basePath = location.pathname.endsWith("/")
+      ? location.pathname
+      : location.pathname.replace(/\/[^\/]*$/, "/");
+    return location.origin + basePath + "tonconnect-manifest.json";
+  }
+
+  const tonConnectUI = new TonConnectUI({
+    manifestUrl: resolveManifestUrl()
+  });
+  window.tonConnectUI = tonConnectUI;
+
+  function getWalletName(wallet) {
+    if (!wallet || typeof wallet !== "object") return "";
+    if (wallet.device && typeof wallet.device.appName === "string") return wallet.device.appName;
+    if (typeof wallet.name === "string") return wallet.name;
+    return "";
+  }
+
+  function setDisconnected() {
+    walletIdBtn.textContent = "-";
+    walletIdBtn.title = "";
+    connectBtn.textContent = "Connect";
+  }
+
+  function setConnected(wallet) {
+    const addr =
+      (wallet && wallet.account && wallet.account.address) ||
+      (tonConnectUI.account && tonConnectUI.account.address) ||
+      "";
+    const name = getWalletName(wallet);
+    walletIdBtn.textContent = addr || "-";
+    walletIdBtn.title = name ? `${name} — ${addr}` : addr;
+    connectBtn.textContent = "Disconnect";
+    connectBtn.title = name || "";
+  }
+
+  tonConnectUI.onStatusChange((wallet) => {
+    if (wallet) setConnected(wallet);
+    else setDisconnected();
+  });
+
+  if (tonConnectUI.connected) {
+    setConnected({ account: tonConnectUI.account });
+  } else {
+    setDisconnected();
+  }
+
+  async function handleConnectClick() {
+    if (tonConnectUI.connected) {
+      const ok = confirm("Отключить кошелек?");
+      if (!ok) return;
+      try {
+        await tonConnectUI.disconnect();
+      } catch (err) {
+        console.error(err);
+      }
+      return;
+    }
+    try {
+      await tonConnectUI.openModal();
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  walletIdBtn.addEventListener("click", handleConnectClick);
+  connectBtn.addEventListener("click", handleConnectClick);
+})();
