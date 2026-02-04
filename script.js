@@ -1438,61 +1438,6 @@ document.addEventListener("click", (e) => {
       renderBuyItems(btn.dataset.type);
     });
   });
-
-  function getBuyLabel(type) {
-    if (type === "energy") return "энергии";
-    if (type === "byte") return "байтов";
-    if (type === "cb") return "CB";
-    return type;
-  }
-
-  function normalizeTon(value) {
-    if (!Number.isFinite(value)) return 0;
-    return Number(value.toFixed(4));
-  }
-
-  buyList.addEventListener("click", (e) => {
-    const btn = e.target.closest(".buy-card-btn");
-    if (!btn) return;
-
-    const type = btn.dataset.type;
-    const index = Number(btn.dataset.index);
-    const amount = parseFloat(String(btn.dataset.amount || "").replace(",", "."));
-    const price = parseFloat(String(btn.dataset.price || "").replace(",", "."));
-
-    if (!type || !Number.isFinite(amount) || amount <= 0 || !Number.isFinite(price) || price <= 0) {
-      alert("❌ Некорректные данные для покупки.");
-      return;
-    }
-
-    const tonBalance = Number(resources.ton || 0);
-    if (!Number.isFinite(tonBalance) || tonBalance < price) {
-      alert(`❌ Недостаточно TON!\nНужно: ${price} TON\nУ вас: ${Number.isFinite(tonBalance) ? tonBalance : 0} TON`);
-      return;
-    }
-
-    const label = getBuyLabel(type);
-
-    resources.ton = normalizeTon(tonBalance - price);
-    if (type === "energy") {
-      energyCans = (Number(energyCans) || 0) + amount;
-      updateEnergyUI();
-    } else {
-      resources[type] = (Number(resources[type]) || 0) + amount;
-      updateAllResources();
-    }
-
-    // One-time listings: remove from list after purchase
-    const list = buyOffers[type];
-    if (Array.isArray(list) && Number.isFinite(index) && index >= 0 && index < list.length) {
-      list.splice(index, 1);
-      renderBuyItems(type);
-    }
-
-    if (typeof showToast === "function") {
-      showToast(`Куплено: +${amount} ${label}`, "success");
-    }
-  });
 })();
 
 // === ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ ===
