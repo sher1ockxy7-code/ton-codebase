@@ -1687,17 +1687,16 @@ document.addEventListener("DOMContentLoaded", function() {
   document.querySelectorAll(".market-modal").forEach(setupFloorCalc);
 });
 
-// === TON CONNECT (привязка кошелька по клику на "-") ===
+// === TON CONNECT (???????? ???????? ?? ????? ?? "-") ===
 (() => {
   const walletIdBtn = document.getElementById("walletIdBtn") || document.querySelector(".wallet-id");
-  const connectBtn = document.getElementById("walletConnectBtn") || document.querySelector(".connect");
-  if (!walletIdBtn || !connectBtn) return;
+  if (!walletIdBtn) return;
 
   const TonConnectUI =
     (window.TON_CONNECT_UI && window.TON_CONNECT_UI.TonConnectUI) ||
     window.TonConnectUI;
   if (!TonConnectUI) {
-    console.warn("TonConnect UI не загружен.");
+    console.warn("TonConnect UI ?? ????????.");
     return;
   }
 
@@ -1724,9 +1723,6 @@ document.addEventListener("DOMContentLoaded", function() {
   function setDisconnected() {
     walletIdBtn.textContent = "-";
     walletIdBtn.title = "";
-    connectBtn.textContent = "Connect";
-    connectBtn.disabled = true;
-    connectBtn.classList.add("is-disabled");
   }
 
   function setConnected(wallet) {
@@ -1736,11 +1732,7 @@ document.addEventListener("DOMContentLoaded", function() {
       "";
     const name = getWalletName(wallet);
     walletIdBtn.textContent = addr || "-";
-    walletIdBtn.title = name ? `${name} — ${addr}` : addr;
-    connectBtn.textContent = "Disconnect";
-    connectBtn.title = name || "";
-    connectBtn.disabled = false;
-    connectBtn.classList.remove("is-disabled");
+    walletIdBtn.title = name ? `${name} - ${addr}` : addr;
   }
 
   tonConnectUI.onStatusChange((wallet) => {
@@ -1762,22 +1754,5 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   }
 
-  async function handleConnectBtnClick() {
-    if (!tonConnectUI.connected) {
-      if (typeof showToast === "function") {
-        showToast("Нажмите на “-” для подключения", "info");
-      }
-      return;
-    }
-    const ok = confirm("Отключить кошелек?");
-    if (!ok) return;
-    try {
-      await tonConnectUI.disconnect();
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
   walletIdBtn.addEventListener("click", handleIdClick);
-  connectBtn.addEventListener("click", handleConnectBtnClick);
 })();
