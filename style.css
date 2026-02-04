@@ -300,6 +300,11 @@ body {
 .connect {
   background: #c21fad;
 }
+.connect.is-disabled,
+.connect:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
 .transactions {
   margin-top: 10px;

@@ -1725,6 +1725,8 @@ document.addEventListener("DOMContentLoaded", function() {
     walletIdBtn.textContent = "-";
     walletIdBtn.title = "";
     connectBtn.textContent = "Connect";
+    connectBtn.disabled = true;
+    connectBtn.classList.add("is-disabled");
   }
 
   function setConnected(wallet) {
@@ -1737,6 +1739,8 @@ document.addEventListener("DOMContentLoaded", function() {
     walletIdBtn.title = name ? `${name} — ${addr}` : addr;
     connectBtn.textContent = "Disconnect";
     connectBtn.title = name || "";
+    connectBtn.disabled = false;
+    connectBtn.classList.remove("is-disabled");
   }
 
   tonConnectUI.onStatusChange((wallet) => {
@@ -1750,17 +1754,7 @@ document.addEventListener("DOMContentLoaded", function() {
     setDisconnected();
   }
 
-  async function handleConnectClick() {
-    if (tonConnectUI.connected) {
-      const ok = confirm("Отключить кошелек?");
-      if (!ok) return;
-      try {
-        await tonConnectUI.disconnect();
-      } catch (err) {
-        console.error(err);
-      }
-      return;
-    }
+  async function handleIdClick() {
     try {
       await tonConnectUI.openModal();
     } catch (err) {
@@ -1768,6 +1762,22 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   }
 
-  walletIdBtn.addEventListener("click", handleConnectClick);
-  connectBtn.addEventListener("click", handleConnectClick);
+  async function handleConnectBtnClick() {
+    if (!tonConnectUI.connected) {
+      if (typeof showToast === "function") {
+        showToast("Нажмите на “-” для подключения", "info");
+      }
+      return;
+    }
+    const ok = confirm("Отключить кошелек?");
+    if (!ok) return;
+    try {
+      await tonConnectUI.disconnect();
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  walletIdBtn.addEventListener("click", handleIdClick);
+  connectBtn.addEventListener("click", handleConnectBtnClick);
 })();
