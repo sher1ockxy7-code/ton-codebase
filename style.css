@@ -499,6 +499,41 @@ nav {
   cursor: pointer;
 }
 
+/* upgradeModal */
+#upgradeModal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 50;
+}
+
+#upgradeModal.hidden {
+  display: none;
+}
+
+#confirmUpgrade {
+  background: #c21fad;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-weight: bold;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
+#closeUpgrade {
+  background: #333b4f;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-weight: bold;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
 /* Окно взаимодействия с инструментом */
 #toolModal {
   position: fixed;
@@ -1536,6 +1571,16 @@ nav {
 
 .tool-actions button:active {
   transform: scale(0.95);
+}
+
+.tool-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+#upgradeTool.is-max {
+  background: #4b4f66;
 }
 
 /* Индикаторы производства в слотах */

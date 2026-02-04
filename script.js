@@ -96,6 +96,11 @@ const openCraftBtn = document.getElementById('craftBtn');
 const infoModal = document.getElementById('infoModal');
 const closeInfo = document.getElementById('closeInfo');
 const confirmCraftBtn = document.getElementById('confirmCraft');
+const upgradeModal = document.getElementById('upgradeModal');
+const upgradeTitle = document.getElementById('upgradeTitle');
+const upgradeBody = document.getElementById('upgradeBody');
+const closeUpgrade = document.getElementById('closeUpgrade');
+const confirmUpgrade = document.getElementById('confirmUpgrade');
 const toolModal = document.getElementById('toolModal');
 const toolBody = document.getElementById('toolBody');
 const closeTool = document.getElementById('closeTool');
@@ -106,11 +111,13 @@ let currentToolIndex = null;
 // КОНСТАНТЫ
 const maxSlots = 10;
 const SLOT_PRICE = 1;
+const MAX_TOOL_LEVEL = 3;
 
 // ПЕРЕМЕННЫЕ
 let activeSlotIndex = null;
 let selectedItem = null;
 let selectedLvl = null;
+let pendingUpgrade = null;
 
 // Загружаем количество слотов
 let slots = parseInt(localStorage.getItem('totalSlots')) || 4;
@@ -206,6 +213,22 @@ const craftData = {
       exit: { amount: 292, type: "cb", name: "CB Bucks" },
       productionTime: 21600000
     }
+  }
+};
+
+// === ДАННЫЕ ДЛЯ УЛУЧШЕНИЙ (ТОЛЬКО +1 УРОВЕНЬ) ===
+const upgradeData = {
+  EnergyBar: {
+    1: { bytes: 1630, cb: 840 },
+    2: { bytes: 3200, cb: 1650 }
+  },
+  ByteMachine: {
+    1: { bytes: 2400, cb: 1200 },
+    2: { bytes: 4700, cb: 2300 }
+  },
+  CBBank: {
+    1: { bytes: 2700, cb: 1400 },
+    2: { bytes: 5500, cb: 2800 }
   }
 };
 
@@ -556,6 +579,7 @@ document.addEventListener("click", (e) => {
 document.addEventListener("pointerdown", (e) => {
   const btn = e.target.closest("button[data-action]");
   if (!btn) return;
+  if (btn.disabled) return;
   const action = btn.dataset.action;
   const modal = document.getElementById("toolModal");
   const index = modal ? parseInt(modal.dataset.currentIndex || "", 10) : NaN;
@@ -576,17 +600,75 @@ window.__startToolClick = function () {
   startProductionAtIndex(index);
 };
 
-window.__upgradeToolClick = function () {
-  if (toolBody) {
-    toolBody.innerHTML = `
-      <div class="tool-info">
-        <p><b>Улучшение</b></p>
-        <p>Система улучшения будет добавлена позже.</p>
-      </div>
+function setUpgradeButtonState(item) {
+  if (!upgradeTool) return;
+  const currentLvl = item ? Number(item.lvl) : NaN;
+  const nextLvl = Number.isFinite(currentLvl) ? currentLvl + 1 : NaN;
+  if (!Number.isFinite(nextLvl) || nextLvl > MAX_TOOL_LEVEL) {
+    upgradeTool.textContent = "Max";
+    upgradeTool.disabled = true;
+    upgradeTool.classList.add("is-max");
+    return;
+  }
+  upgradeTool.textContent = "⤴️ Улучшить";
+  upgradeTool.disabled = false;
+  upgradeTool.classList.remove("is-max");
+}
+
+function openUpgradeModal(index) {
+  if (!Number.isFinite(index)) index = currentToolIndex;
+  if (!Number.isFinite(index)) {
+    showToast("Сначала выберите инструмент в слоте.", "error");
+    return;
+  }
+  const item = inventory[index];
+  if (!item) {
+    showToast("В слоте нет инструмента.", "error");
+    return;
+  }
+  if (isProducing(index)) {
+    showToast("Нельзя улучшать во время производства.", "error");
+    return;
+  }
+
+  const currentLvl = Number(item.lvl) || 1;
+  const nextLvl = currentLvl + 1;
+  if (nextLvl > MAX_TOOL_LEVEL) {
+    showToast("Достигнут максимальный уровень.", "info");
+    return;
+  }
+
+  const cost = upgradeData[item.name] ? upgradeData[item.name][currentLvl] : null;
+  if (!cost) {
+    showToast("Нет данных для улучшения.", "error");
+    return;
+  }
+
+  pendingUpgrade = {
+    index,
+    from: currentLvl,
+    to: nextLvl,
+    cost,
+    name: item.name
+  };
+
+  if (upgradeTitle) {
+    upgradeTitle.textContent = `${item.name} ${currentLvl} lvl → ${nextLvl} lvl`;
+  }
+
+  if (upgradeBody) {
+    upgradeBody.innerHTML = `
+      <p><b>${item.name} ${currentLvl} lvl → ${nextLvl} lvl</b></p>
+      <p><b>Upgrade:</b> ${cost.bytes} Bytes, ${cost.cb} CB</p>
     `;
   }
-  showToast("Улучшение будет добавлено позже.", "info");
+
+  if (upgradeModal) upgradeModal.classList.remove("hidden");
   if (toolModal) toolModal.classList.add("hidden");
+}
+
+window.__upgradeToolClick = function () {
+  openUpgradeModal();
 };
 
 // === ПОКУПКА СЛОТА (ИСПРАВЛЕННАЯ) ===
@@ -644,6 +726,56 @@ openCraftBtn.addEventListener("click", () => openCraft(null));
 // === МОДАЛЬНОЕ ОКНО ИНФО О КРАФТЕ ===
 closeInfo.addEventListener("click", () => infoModal.classList.add("hidden"));
 const infoBody = document.getElementById("infoBody");
+
+// === МОДАЛЬНОЕ ОКНО УЛУЧШЕНИЯ ===
+if (closeUpgrade) {
+  closeUpgrade.addEventListener("click", () => {
+    if (upgradeModal) upgradeModal.classList.add("hidden");
+    pendingUpgrade = null;
+  });
+}
+
+if (confirmUpgrade) {
+  confirmUpgrade.addEventListener("click", () => {
+    if (!pendingUpgrade) {
+      showToast("Нет данных для улучшения.", "error");
+      return;
+    }
+
+    const { index, from, to, cost, name } = pendingUpgrade;
+    const item = inventory[index];
+
+    if (!item || item.name !== name || Number(item.lvl) !== from) {
+      showToast("Инструмент изменился. Откройте улучшение заново.", "error");
+      if (upgradeModal) upgradeModal.classList.add("hidden");
+      pendingUpgrade = null;
+      return;
+    }
+
+    if (isProducing(index)) {
+      showToast("Нельзя улучшать во время производства.", "error");
+      return;
+    }
+
+    if (resources.byte < cost.bytes || resources.cb < cost.cb) {
+      showToast(`Недостаточно ресурсов: нужно ${cost.bytes} Bytes, ${cost.cb} CB`, "error");
+      return;
+    }
+
+    resources.byte -= cost.bytes;
+    resources.cb -= cost.cb;
+    item.lvl = to;
+    item.img = toolImages[name][to];
+    inventory[index] = item;
+
+    saveAll();
+    renderSlots();
+
+    if (upgradeModal) upgradeModal.classList.add("hidden");
+    pendingUpgrade = null;
+    showToast(`Улучшено: ${name} ${to} lvl`, "success");
+  });
+}
 
 // === НАЖАТИЕ НА "СКРАФТИТЬ" ===
   document.querySelectorAll(".craft-btn").forEach(btn => {
@@ -761,11 +893,7 @@ slotsContainer.addEventListener("click", (e) => {
   toolModal.classList.remove("hidden");
   toolModal.dataset.currentIndex = index;
   currentToolIndex = index;
-
-  upgradeTool.onclick = function() {
-    alert("⤴️ Система Улучшения будет добавлена позже!");
-    toolModal.classList.add("hidden");
-  };
+  setUpgradeButtonState(item);
 
   closeTool.onclick = function() {
     toolModal.classList.add("hidden");
