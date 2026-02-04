@@ -312,6 +312,7 @@ body {
   width: 90%;
   max-width: 440px;
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  position: relative;
 }
 
 .wallet-modal-title {
@@ -364,6 +365,22 @@ body {
   padding: 8px 18px;
   border-radius: 8px;
   cursor: pointer;
+}
+
+.wallet-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 2;
+}
+.wallet-close:hover {
+  color: #fff;
 }
 
 .wallet-id,

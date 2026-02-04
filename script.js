@@ -1761,10 +1761,61 @@ document.addEventListener("DOMContentLoaded", function() {
   });
 
   [depositModal, withdrawModal].forEach((modal) => {
+    const closeBtn = modal.querySelector(".wallet-close");
+    if (closeBtn) {
+      closeBtn.addEventListener("click", () => {
+        modal.classList.add("hidden");
+      });
+    }
+
     const submit = modal.querySelector(".wallet-submit");
     if (!submit) return;
     submit.addEventListener("click", () => {
+      const input = modal.querySelector(".wallet-input");
+      const raw = input ? String(input.value || "").replace(",", ".") : "";
+      const amount = parseFloat(raw);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        const msg = "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0441\u0443\u043c\u043c\u0443";
+        if (typeof showToast === "function") {
+          showToast(msg, "error");
+        } else {
+          alert(msg);
+        }
+        return;
+      }
+
+      const balance = Number(resources.ton || 0);
+      if (!Number.isFinite(balance) || balance < amount) {
+        const msg = "\u041d\u0435\u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e TON";
+        if (typeof showToast === "function") {
+          showToast(msg, "error");
+        } else {
+          alert(msg);
+        }
+        return;
+      }
+
+      const newBalance = Number((balance - amount).toFixed(4));
+      resources.ton = newBalance;
+      updateAllResources();
+
+      if (input) input.value = "";
       modal.classList.add("hidden");
+
+      const msg = `\u0421\u043f\u0438\u0441\u0430\u043d\u043e: ${amount} TON`;
+      if (typeof showToast === "function") {
+        showToast(msg, "success");
+      } else {
+        alert(msg);
+      }
     });
+  });
+
+  // Fallback: close by delegation (на случай, если кнопка пересоздаётся)
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest(".wallet-close");
+    if (!btn) return;
+    const modal = btn.closest(".modal");
+    if (modal) modal.classList.add("hidden");
   });
 })();
