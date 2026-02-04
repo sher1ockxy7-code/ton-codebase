@@ -283,6 +283,89 @@ body {
   flex-wrap: wrap;
 }
 
+.wallet-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.wallet-action {
+  border: none;
+  border-radius: 10px;
+  padding: 8px 14px;
+  background: #2a3c57;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.wallet-action#withdrawBtn {
+  background: #c21fad;
+}
+
+.wallet-modal {
+  background: linear-gradient(135deg, #0c1330, #0f1b3a);
+  border-radius: 22px;
+  padding: 20px;
+  width: 90%;
+  max-width: 440px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+
+.wallet-modal-title {
+  font-size: 24px;
+  font-weight: 800;
+  margin-bottom: 12px;
+}
+
+.wallet-input {
+  width: 100%;
+  border: none;
+  border-radius: 22px;
+  padding: 12px 16px;
+  background: #1b2f45;
+  color: #fff;
+  font-size: 16px;
+  outline: none;
+}
+
+.wallet-input::placeholder {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.wallet-quick {
+  display: flex;
+  gap: 10px;
+  margin: 12px 0 16px;
+}
+
+.wallet-quick-btn {
+  background: #1d3047;
+  border: none;
+  color: #fff;
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 16px;
+  cursor: pointer;
+}
+
+.wallet-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.wallet-submit {
+  background: #1e9b3a;
+  border: none;
+  color: #fff;
+  font-weight: 800;
+  padding: 8px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
 .wallet-id,
 .connect {
   border: none;

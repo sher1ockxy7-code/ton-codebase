@@ -137,13 +137,16 @@
         <div class="wallet-connect">
           <div id="ton-connect"></div>
         </div>
+        <div class="wallet-actions">
+          <button class="wallet-action" id="depositBtn">&#1044;&#1077;&#1087;&#1086;&#1079;&#1080;&#1090;</button>
+          <button class="wallet-action" id="withdrawBtn">&#1042;&#1099;&#1074;&#1086;&#1076;</button>
+        </div>
         <p>История:</p>
       </div>
 
       <div class="transactions">
         
       </div>
-      <p class="fee">С каждого вывода взимается 5%</p>
     </section>
   </div>
 
@@ -154,6 +157,37 @@
     <button class="nav-btn" data-page="market">Market</button>
     <button class="nav-btn" data-page="wallet">Wallet</button>
   </nav>
+
+  <div id="depositModal" class="modal hidden">
+    <div class="wallet-modal">
+      <div class="wallet-modal-title">&#1044;&#1077;&#1087;&#1086;&#1079;&#1080;&#1090;:</div>
+      <input class="wallet-input" type="text" inputmode="decimal" placeholder="&#1042;&#1074;&#1077;&#1076;&#1080;&#1090;&#1077; &#1089;&#1091;&#1084;&#1084;&#1091; &#1074;&#1074;&#1086;&#1076;&#1072;" />
+      <div class="wallet-quick">
+        <button class="wallet-quick-btn" data-add="10">+10</button>
+        <button class="wallet-quick-btn" data-add="15">+15</button>
+        <button class="wallet-quick-btn" data-add="20">+20</button>
+      </div>
+      <div class="wallet-modal-actions">
+        <button class="wallet-submit" data-action="deposit">&#1042;&#1074;&#1077;&#1089;&#1090;&#1080;</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="withdrawModal" class="modal hidden">
+    <div class="wallet-modal">
+      <div class="wallet-modal-title">&#1042;&#1099;&#1074;&#1086;&#1076;:</div>
+      <input class="wallet-input" type="text" inputmode="decimal" placeholder="&#1042;&#1074;&#1077;&#1076;&#1080;&#1090;&#1077; &#1089;&#1091;&#1084;&#1084;&#1091; &#1074;&#1099;&#1074;&#1086;&#1076;&#1072;" />
+      <div class="wallet-quick">
+        <button class="wallet-quick-btn" data-add="10">+10</button>
+        <button class="wallet-quick-btn" data-add="15">+15</button>
+        <button class="wallet-quick-btn" data-add="20">+20</button>
+      </div>
+      <div class="wallet-modal-actions">
+        <button class="wallet-submit" data-action="withdraw">&#1042;&#1099;&#1074;&#1077;&#1089;&#1090;&#1080;</button>
+      </div>
+    </div>
+  </div>
+
 
   <!-- Окно крафта -->
   <div id="craftModal" class="modal hidden">

@@ -1714,3 +1714,57 @@ document.addEventListener("DOMContentLoaded", function() {
   });
   window.tonConnectUI = tonConnectUI;
 })();
+
+// === Wallet actions ===
+(() => {
+  const depositBtn = document.getElementById("depositBtn");
+  const withdrawBtn = document.getElementById("withdrawBtn");
+  const depositModal = document.getElementById("depositModal");
+  const withdrawModal = document.getElementById("withdrawModal");
+  if (!depositBtn || !withdrawBtn || !depositModal || !withdrawModal) return;
+
+  function openModal(modal) {
+    modal.classList.remove("hidden");
+    const input = modal.querySelector(".wallet-input");
+    if (input) {
+      input.focus();
+      input.select();
+    }
+  }
+
+  function bindQuick(modal) {
+    const input = modal.querySelector(".wallet-input");
+    if (!input) return;
+    modal.querySelectorAll(".wallet-quick-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const add = parseFloat(btn.dataset.add || "0");
+        if (!Number.isFinite(add)) return;
+        const current = parseFloat(String(input.value || "").replace(",", "."));
+        const base = Number.isFinite(current) ? current : 0;
+        input.value = base + add;
+      });
+    });
+  }
+
+  bindQuick(depositModal);
+  bindQuick(withdrawModal);
+
+  depositBtn.addEventListener("click", () => openModal(depositModal));
+  withdrawBtn.addEventListener("click", () => {
+    openModal(withdrawModal);
+    const msg = "\u0421 \u043a\u0430\u0436\u0434\u043e\u0433\u043e \u0432\u044b\u0432\u043e\u0434\u0430 \u0432\u0437\u0438\u043c\u0430\u0435\u0442\u0441\u044f 5%";
+    if (typeof showToast === "function") {
+      showToast(msg, "info");
+    } else {
+      alert(msg);
+    }
+  });
+
+  [depositModal, withdrawModal].forEach((modal) => {
+    const submit = modal.querySelector(".wallet-submit");
+    if (!submit) return;
+    submit.addEventListener("click", () => {
+      modal.classList.add("hidden");
+    });
+  });
+})();
