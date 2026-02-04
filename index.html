@@ -134,19 +134,35 @@
     <!-- Wallet -->
     <section id="wallet" class="page">
       <div class="wallet-header">
-      <div class="wallet-connect">
-          <button class="wallet-id" id="walletIdBtn">-</button>
-          <button class="connect" id="walletConnectBtn">Connect</button>
-      </div>
-        <p>История: <b>iD:1425516352</b></p>
+        <div class="wallet-connect">
+          <button class="wallet-id">Connect Wallet</button>
+          <div id="ton-connect"></div>
+<div id="wallet-addr" style="margin-top:10px; word-break:break-all;"></div>
+
+<script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+<script>
+  const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+    manifestUrl: 'https://sher1ockxy7-code.github.io/ton-codebase/tonconnect-manifest.json',
+    buttonRootId: 'ton-connect'
+  });
+
+  const addrEl = document.getElementById('wallet-addr');
+
+  tonConnectUI.onStatusChange(wallet => {
+    addrEl.textContent = wallet
+      ? ('Подключено: ' + wallet.account.address)
+      : 'Кошелёк не подключён';
+  });
+</script>
+
+          <button class="connect">Connect</button>
+        </div>
+        <p>История:</p>
       </div>
 
       <div class="transactions">
         <div class="tx"><p>Вывод: 12.10 18:27</p><p>💎 4.2</p><button class="success">Успешно</button></div>
         <div class="tx"><p>Вывод: 12.10 18:25</p><p>💎 4.0</p><button class="success">Успешно</button></div>
-        <div class="tx"><p>Вывод: 12.10 18:23</p><p>💎 4.5</p><button class="success">Успешно</button></div>
-        <div class="tx"><p>Вывод: 12.10 18:23</p><p>💎 4.5</p><button class="success">Успешно</button></div>
-        <div class="tx"><p>Вывод: 12.10 18:23</p><p>💎 4.5</p><button class="success">Успешно</button></div>
         <div class="tx"><p>Вывод: 12.10 18:25</p><p>💎 4.0</p><button class="success">Успешно</button></div>
         <div class="tx"><p>Вывод: 12.10 18:23</p><p>💎 2.3</p><button class="success">Успешно</button></div>
         <div class="tx"><p>Вывод: 12.10 18:23</p><p>💎 4.3</p><button class="success">Успешно</button></div>
@@ -411,7 +427,6 @@
     </div>
   </div>
 
-  <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
   <script src="script.js"></script>
 
 </body>
