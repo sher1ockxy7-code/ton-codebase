@@ -299,6 +299,9 @@ body {
 
 .connect {
   background: #c21fad;
+  max-width: 100%;
+  word-break: break-all;
+  white-space: normal;
 }
 .connect.is-disabled,
 .connect:disabled {

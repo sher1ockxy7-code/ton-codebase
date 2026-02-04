@@ -1687,16 +1687,16 @@ document.addEventListener("DOMContentLoaded", function() {
   document.querySelectorAll(".market-modal").forEach(setupFloorCalc);
 });
 
-// === TON CONNECT (???????? ???????? ?? ????? ?? "-") ===
+// === TON CONNECT (single button) ===
 (() => {
-  const walletIdBtn = document.getElementById("walletIdBtn") || document.querySelector(".wallet-id");
-  if (!walletIdBtn) return;
+  const connectBtn = document.getElementById("walletConnectBtn") || document.querySelector(".connect");
+  if (!connectBtn) return;
 
   const TonConnectUI =
     (window.TON_CONNECT_UI && window.TON_CONNECT_UI.TonConnectUI) ||
     window.TonConnectUI;
   if (!TonConnectUI) {
-    console.warn("TonConnect UI ?? ????????.");
+    console.warn("TonConnect UI not loaded.");
     return;
   }
 
@@ -1721,8 +1721,8 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   function setDisconnected() {
-    walletIdBtn.textContent = "-";
-    walletIdBtn.title = "";
+    connectBtn.textContent = "Connect Wallet";
+    connectBtn.title = "";
   }
 
   function setConnected(wallet) {
@@ -1731,8 +1731,8 @@ document.addEventListener("DOMContentLoaded", function() {
       (tonConnectUI.account && tonConnectUI.account.address) ||
       "";
     const name = getWalletName(wallet);
-    walletIdBtn.textContent = addr || "-";
-    walletIdBtn.title = name ? `${name} - ${addr}` : addr;
+    connectBtn.textContent = addr || "Connected";
+    connectBtn.title = name ? `${name} - ${addr}` : addr;
   }
 
   tonConnectUI.onStatusChange((wallet) => {
@@ -1746,7 +1746,17 @@ document.addEventListener("DOMContentLoaded", function() {
     setDisconnected();
   }
 
-  async function handleIdClick() {
+  async function handleClick() {
+    if (tonConnectUI.connected) {
+      const ok = confirm("Disconnect wallet?");
+      if (!ok) return;
+      try {
+        await tonConnectUI.disconnect();
+      } catch (err) {
+        console.error(err);
+      }
+      return;
+    }
     try {
       await tonConnectUI.openModal();
     } catch (err) {
@@ -1754,5 +1764,5 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   }
 
-  walletIdBtn.addEventListener("click", handleIdClick);
+  connectBtn.addEventListener("click", handleClick);
 })();
