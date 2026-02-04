@@ -255,12 +255,13 @@ function formatTimer(ms) {
   return `${hh}:${mm}:${ss}`;
 }
 
-function isProducing(index) {
+function isProducing(index, now = Date.now()) {
   const entry = productionState[index];
-  return !!entry && Number.isFinite(entry.endsAt) && Date.now() < entry.endsAt;
+  return !!entry && Number.isFinite(entry.endsAt) && now < entry.endsAt;
 }
 
-function finishProduction(index) {
+function finishProduction(index, options = {}) {
+  const { silent = false, updateUI = true } = options;
   const entry = productionState[index];
   const item = inventory[index];
   if (!entry || !item) return;
@@ -268,8 +269,12 @@ function finishProduction(index) {
   resources[data.exit.type] = (resources[data.exit.type] || 0) + data.exit.amount;
   productionState[index] = null;
   saveProductionState();
-  updateAllResources();
-  showProductionNotification(item, data.exit.amount, data.exit.name);
+  if (updateUI) {
+    updateAllResources();
+  }
+  if (!silent) {
+    showProductionNotification(item, data.exit.amount, data.exit.name);
+  }
 }
 
 function showProductionNotification(item, amount, name) {
@@ -385,7 +390,68 @@ function renderSlots() {
 
   // Обновляем кнопку покупки слота
   updateBuySlotButton();
-  updateProductionTimers();
+}
+
+function maybeFinishOverdue(index, now, options = {}) {
+  const entry = productionState[index];
+  if (entry && Number.isFinite(entry.endsAt) && entry.endsAt <= now) {
+    finishProduction(index, options);
+  }
+}
+
+function canAutoFillEnergy(required) {
+  if (currentEnergy >= required) return true;
+  const needed = required - currentEnergy;
+  const cansNeeded = Math.ceil(needed / 10);
+  return energyCans >= cansNeeded;
+}
+
+function applyAutoFillEnergy(required) {
+  if (currentEnergy >= required) return true;
+  const needed = required - currentEnergy;
+  const cansNeeded = Math.ceil(needed / 10);
+  if (energyCans < cansNeeded) return false;
+  energyCans -= cansNeeded;
+  currentEnergy = Math.min(maxEnergy, currentEnergy + cansNeeded * 10);
+  resources.energy = energyCans;
+  localStorage.setItem("currentEnergy", currentEnergy);
+  return currentEnergy >= required;
+}
+
+function startProductionAutoAtIndex(index, atTime = Date.now()) {
+  if (!Number.isFinite(index)) return false;
+  const item = inventory[index];
+  if (!item) return false;
+
+  maybeFinishOverdue(index, atTime, { silent: true, updateUI: false });
+
+  if (isProducing(index, atTime)) return false;
+
+  const data = craftData[item.name][item.lvl];
+  const service = data.service;
+
+  if (resources.byte < service.bytes || resources.cb < service.cb) {
+    return false;
+  }
+
+  if (currentEnergy < service.energy) {
+    if (!canAutoFillEnergy(service.energy)) return false;
+    if (!applyAutoFillEnergy(service.energy)) return false;
+  }
+
+  if (currentEnergy < service.energy) return false;
+
+  resources.byte -= service.bytes;
+  resources.cb -= service.cb;
+  currentEnergy = Math.max(0, currentEnergy - service.energy);
+  localStorage.setItem("currentEnergy", currentEnergy);
+  resources.energy = energyCans;
+
+  productionState[index] = {
+    endsAt: atTime + data.productionTime
+  };
+  saveProductionState();
+  return true;
 }
 
 function startProductionAtIndex(index) {
@@ -405,7 +471,10 @@ function startProductionAtIndex(index) {
   const data = craftData[item.name][item.lvl];
   const service = data.service;
 
-  if (isProducing(index)) {
+  const now = Date.now();
+  maybeFinishOverdue(index, now, { silent: true, updateUI: false });
+
+  if (isProducing(index, now)) {
     showToast(`Уже запущено. Осталось: ${formatTimer(productionState[index].endsAt - Date.now())}`, "error");
     return;
   }
@@ -441,7 +510,6 @@ function startProductionAtIndex(index) {
   localStorage.setItem("currentEnergy", currentEnergy);
   updateEnergyUI();
 
-  const now = Date.now();
   productionState[index] = {
     endsAt: now + data.productionTime
   };
@@ -578,23 +646,24 @@ closeInfo.addEventListener("click", () => infoModal.classList.add("hidden"));
 const infoBody = document.getElementById("infoBody");
 
 // === НАЖАТИЕ НА "СКРАФТИТЬ" ===
-document.querySelectorAll(".craft-btn").forEach(btn => {
-  btn.addEventListener("click", e => {
-    const itemNode = e.target.closest(".craft-item");
-    selectedItem = itemNode.dataset.item;
-    selectedLvl = itemNode.querySelector(".lvl-select").value;
+  document.querySelectorAll(".craft-btn").forEach(btn => {
+    btn.addEventListener("click", e => {
+      const itemNode = e.target.closest(".craft-item");
+      selectedItem = itemNode.dataset.item;
+      selectedLvl = itemNode.querySelector(".lvl-select").value;
 
-    const data = craftData[selectedItem][selectedLvl];
+      const data = craftData[selectedItem][selectedLvl];
 
-    infoBody.innerHTML = `
+      infoBody.innerHTML = `
       <p><b>${selectedItem} ${selectedLvl} lvl</b></p>
       <p><b>Craft:</b> ${data.craft.bytes} Bytes, ${data.craft.cb} CB</p>
       <p><b>Service:</b> ${data.service.bytes} Bytes, ${data.service.cb} CB, ${data.service.energy} Energy</p>
       <p><b>Exit:</b> ${data.exit.amount} ${data.exit.name}</p>
     `;
-    infoModal.classList.remove("hidden");
+      craftModal.classList.add("hidden");
+      infoModal.classList.remove("hidden");
+    });
   });
-});
 
 // === ПОДТВЕРЖДЕНИЕ КРАФТА ===
 confirmCraftBtn.addEventListener("click", () => {
@@ -704,12 +773,99 @@ slotsContainer.addEventListener("click", (e) => {
 });
 
 // === АВТОЗАПУСК: модалки + найм ===
+const DAY_MS = 24 * 60 * 60 * 1000;
+const AUTO_WORKERS = {
+  logan: { durationMs: 3 * DAY_MS },
+  jason: { durationMs: 7 * DAY_MS }
+};
+const AUTO_LAST_TICK_KEY = "autoLastTick";
+
+function normalizeHiredWorkers() {
+  const now = Date.now();
+  const raw = JSON.parse(localStorage.getItem("hiredWorkers") || "{}");
+  const normalized = {};
+  Object.keys(AUTO_WORKERS).forEach((worker) => {
+    const entry = raw[worker];
+    if (entry && typeof entry === "object" && Number.isFinite(entry.expiresAt)) {
+      normalized[worker] = entry;
+    } else if (entry === true) {
+      normalized[worker] = { expiresAt: now + AUTO_WORKERS[worker].durationMs };
+    }
+  });
+  localStorage.setItem("hiredWorkers", JSON.stringify(normalized));
+  return normalized;
+}
+
+function getAutoLastTick() {
+  const raw = parseInt(localStorage.getItem(AUTO_LAST_TICK_KEY) || "0", 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : 0;
+}
+
+function setAutoLastTick(value) {
+  if (Number.isFinite(value)) {
+    localStorage.setItem(AUTO_LAST_TICK_KEY, String(Math.floor(value)));
+  }
+}
+
+function cleanupExpiredWorkers(now = Date.now()) {
+  let changed = false;
+  Object.keys(AUTO_WORKERS).forEach((worker) => {
+    const entry = hiredWorkers[worker];
+    if (entry && Number.isFinite(entry.expiresAt) && entry.expiresAt <= now) {
+      delete hiredWorkers[worker];
+      changed = true;
+    }
+  });
+  if (changed) saveHiredWorkers();
+}
+
+function formatDurationShort(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const d = Math.floor(total / 86400);
+  const h = Math.floor((total % 86400) / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+function getAutoIntervals() {
+  const intervals = [];
+  Object.keys(AUTO_WORKERS).forEach((worker) => {
+    const entry = hiredWorkers[worker];
+    if (!entry || !Number.isFinite(entry.expiresAt)) return;
+    const duration = AUTO_WORKERS[worker].durationMs;
+    const start = entry.expiresAt - duration;
+    const end = entry.expiresAt;
+    intervals.push([start, end]);
+  });
+  intervals.sort((a, b) => a[0] - b[0]);
+  const merged = [];
+  intervals.forEach(([start, end]) => {
+    if (!merged.length || start > merged[merged.length - 1][1]) {
+      merged.push([start, end]);
+      return;
+    }
+    merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], end);
+  });
+  return merged;
+}
+
+function isAutoActive(now = Date.now()) {
+  const intervals = getAutoIntervals();
+  for (let i = 0; i < intervals.length; i++) {
+    const [start, end] = intervals[i];
+    if (now >= start && now < end) return true;
+  }
+  return false;
+}
+
 const autoStartModal = document.getElementById("autoStartModal");
 const loganModal = document.getElementById("loganModal");
 const jasonModal = document.getElementById("jasonModal");
 let hireButtons = document.querySelectorAll(".auto-hire-btn[data-worker]");
 
-let hiredWorkers = JSON.parse(localStorage.getItem("hiredWorkers") || "{}");
+let hiredWorkers = normalizeHiredWorkers();
 
 function openModal(modal) {
   if (modal) modal.classList.remove("hidden");
@@ -729,7 +885,9 @@ function getCurrencyLabel(type) {
   return type;
 }
 
-function setHiredState(worker, hired) {
+function setHiredState(worker, entry) {
+  const now = Date.now();
+  const hired = !!entry && Number.isFinite(entry.expiresAt) && entry.expiresAt > now;
   hireButtons.forEach(btn => {
     if (btn.dataset.worker !== worker) return;
     if (hired) {
@@ -748,10 +906,23 @@ function setHiredState(worker, hired) {
   });
 }
 
+function updateWorkerStatusText(worker, entry) {
+  const now = Date.now();
+  const hired = !!entry && Number.isFinite(entry.expiresAt) && entry.expiresAt > now;
+  const remaining = hired ? formatDurationShort(entry.expiresAt - now) : "";
+  if (!hired || !remaining) return;
+  document.querySelectorAll(`.auto-worker-status[data-worker="${worker}"]`).forEach(node => {
+    node.textContent = `Active: ${remaining}`;
+  });
+}
+
 function refreshHiredUI() {
   hireButtons = document.querySelectorAll(".auto-hire-btn[data-worker]");
-  setHiredState("logan", !!hiredWorkers.logan);
-  setHiredState("jason", !!hiredWorkers.jason);
+  cleanupExpiredWorkers();
+  setHiredState("logan", hiredWorkers.logan);
+  setHiredState("jason", hiredWorkers.jason);
+  updateWorkerStatusText("logan", hiredWorkers.logan);
+  updateWorkerStatusText("jason", hiredWorkers.jason);
 }
 
 document.addEventListener("click", (e) => {
@@ -782,7 +953,7 @@ document.addEventListener("click", (e) => {
     return;
   }
 
-  if (hiredWorkers[worker]) {
+  if (hiredWorkers[worker] && Number.isFinite(hiredWorkers[worker].expiresAt) && hiredWorkers[worker].expiresAt > Date.now()) {
     alert("Этот работник уже нанят.");
     return;
   }
@@ -804,12 +975,122 @@ document.addEventListener("click", (e) => {
   resources[currency] = balance - price;
   updateAllResources();
 
-  hiredWorkers[worker] = true;
+  const durationMs = AUTO_WORKERS[worker] ? AUTO_WORKERS[worker].durationMs : 0;
+  hiredWorkers[worker] = { expiresAt: Date.now() + durationMs };
   saveHiredWorkers();
   refreshHiredUI();
+  setAutoLastTick(Date.now());
 });
 
 // === MARKET: иконки → модалки ===
+function autoStartAllAtTime(atTime, autoActive = null) {
+  const active = autoActive === null ? isAutoActive(atTime) : autoActive;
+  if (!active) return 0;
+  let started = 0;
+  for (let i = 0; i < slots; i++) {
+    if (!inventory[i]) continue;
+    if (isProducing(i, atTime)) continue;
+    if (startProductionAutoAtIndex(i, atTime)) started += 1;
+  }
+  return started;
+}
+
+function autoStartTick() {
+  const now = Date.now();
+  cleanupExpiredWorkers(now);
+  if (!isAutoActive(now)) return;
+  const started = autoStartAllAtTime(now, true);
+  if (started > 0) {
+    updateEnergyUI();
+    renderSlots();
+  }
+}
+
+function processDueCompletions(atTime) {
+  for (let i = 0; i < productionState.length; i++) {
+    const entry = productionState[i];
+    if (entry && Number.isFinite(entry.endsAt) && entry.endsAt <= atTime) {
+      finishProduction(i, { silent: true, updateUI: false });
+    }
+  }
+}
+
+function getNextCompletionAfter(atTime) {
+  let next = Infinity;
+  for (let i = 0; i < productionState.length; i++) {
+    const entry = productionState[i];
+    if (entry && Number.isFinite(entry.endsAt) && entry.endsAt > atTime && entry.endsAt < next) {
+      next = entry.endsAt;
+    }
+  }
+  return next;
+}
+
+function processSegment(segStart, segEnd, autoActive) {
+  if (segEnd <= segStart) return;
+  processDueCompletions(segStart);
+  if (autoActive) {
+    autoStartAllAtTime(segStart, true);
+  }
+  let current = segStart;
+  let guard = 0;
+  while (guard < 10000) {
+    guard += 1;
+    const nextEnd = getNextCompletionAfter(current);
+    if (!Number.isFinite(nextEnd) || nextEnd > segEnd) break;
+    current = nextEnd;
+    processDueCompletions(current);
+    if (autoActive) {
+      autoStartAllAtTime(current, true);
+    }
+  }
+}
+
+function processOfflineAuto() {
+  const now = Date.now();
+  normalizeProductionState();
+  let lastTick = getAutoLastTick();
+  if (!lastTick || !Number.isFinite(lastTick)) {
+    setAutoLastTick(now);
+    updateEnergyUI();
+    return;
+  }
+  if (lastTick > now) lastTick = now;
+
+  const intervals = getAutoIntervals();
+  let cursor = lastTick;
+
+  if (!intervals.length) {
+    processSegment(cursor, now, false);
+  } else {
+    for (let i = 0; i < intervals.length; i++) {
+      const [start, end] = intervals[i];
+      if (cursor >= now) break;
+      if (end <= cursor) continue;
+      if (start > cursor) {
+        const gapEnd = Math.min(start, now);
+        processSegment(cursor, gapEnd, false);
+        cursor = gapEnd;
+      }
+      if (cursor >= now) break;
+      const segStart = Math.max(cursor, start);
+      const segEnd = Math.min(end, now);
+      if (segEnd > segStart) {
+        processSegment(segStart, segEnd, true);
+        cursor = segEnd;
+      }
+    }
+    if (cursor < now) {
+      processSegment(cursor, now, false);
+    }
+  }
+
+  saveProductionState();
+  updateEnergyUI();
+  setAutoLastTick(now);
+  cleanupExpiredWorkers(now);
+}
+
 const marketIcons = document.querySelectorAll(".res-icons img");
 const energyMarketModal = document.getElementById("energyMarketModal");
 const byteMarketModal = document.getElementById("byteMarketModal");
@@ -1107,7 +1388,7 @@ document.addEventListener("click", (e) => {
     const list = buyOffers[type] || [];
     buyList.innerHTML = "";
 
-    list.forEach(offer => {
+    list.forEach((offer, index) => {
       const card = document.createElement("div");
       card.className = "buy-card";
       card.innerHTML = `
@@ -1126,6 +1407,8 @@ document.addEventListener("click", (e) => {
         </div>
         <button class="buy-card-btn" data-type="${type}" data-amount="${offer.amount}" data-price="${offer.price}">Купить</button>
       `;
+      const buyBtn = card.querySelector(".buy-card-btn");
+      if (buyBtn) buyBtn.dataset.index = String(index);
       buyList.appendChild(card);
     });
   }
@@ -1173,6 +1456,10 @@ document.addEventListener("click", (e) => {
     if (!btn) return;
 
     const type = btn.dataset.type;
+<<<<<<< HEAD
+    const index = Number(btn.dataset.index);
+=======
+>>>>>>> 3df9ad2560e797764c38a498bd4fb61271af9359
     const amount = parseFloat(String(btn.dataset.amount || "").replace(",", "."));
     const price = parseFloat(String(btn.dataset.price || "").replace(",", "."));
 
@@ -1198,6 +1485,16 @@ document.addEventListener("click", (e) => {
       updateAllResources();
     }
 
+<<<<<<< HEAD
+    // One-time listings: remove from list after purchase
+    const list = buyOffers[type];
+    if (Array.isArray(list) && Number.isFinite(index) && index >= 0 && index < list.length) {
+      list.splice(index, 1);
+      renderBuyItems(type);
+    }
+
+=======
+>>>>>>> 3df9ad2560e797764c38a498bd4fb61271af9359
     if (typeof showToast === "function") {
       showToast(`Куплено: +${amount} ${label}`, "success");
     }
@@ -1205,13 +1502,24 @@ document.addEventListener("click", (e) => {
 })();
 
 // === ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ ===
+let mainTickCounter = 0;
+function mainTick() {
+  updateProductionTimers();
+  autoStartTick();
+  mainTickCounter += 1;
+  if (mainTickCounter % 10 === 0) {
+    refreshHiredUI();
+  }
+  setAutoLastTick(Date.now());
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   // Восстанавливаем все данные
-  updateAllResources();
+  processOfflineAuto();
   renderSlots();
   updateBuySlotButton();
-  updateProductionTimers();
-  setInterval(updateProductionTimers, 1000);
+  mainTick();
+  setInterval(mainTick, 1000);
   refreshHiredUI();
 });
 // === РАСЧЕТ ПРОДАЖИ ПО ФЛОРУ (МОДАЛКИ MARKET) ===
