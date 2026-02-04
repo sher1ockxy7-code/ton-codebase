@@ -1687,10 +1687,10 @@ document.addEventListener("DOMContentLoaded", function() {
   document.querySelectorAll(".market-modal").forEach(setupFloorCalc);
 });
 
-// === TON CONNECT (single button) ===
+// === TON CONNECT (default button only) ===
 (() => {
-  const connectBtn = document.getElementById("walletConnectBtn") || document.querySelector(".connect");
-  if (!connectBtn) return;
+  const buttonRoot = document.getElementById("ton-connect");
+  if (!buttonRoot) return;
 
   const TonConnectUI =
     (window.TON_CONNECT_UI && window.TON_CONNECT_UI.TonConnectUI) ||
@@ -1709,60 +1709,8 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   const tonConnectUI = new TonConnectUI({
-    manifestUrl: resolveManifestUrl()
+    manifestUrl: resolveManifestUrl(),
+    buttonRootId: "ton-connect"
   });
   window.tonConnectUI = tonConnectUI;
-
-  function getWalletName(wallet) {
-    if (!wallet || typeof wallet !== "object") return "";
-    if (wallet.device && typeof wallet.device.appName === "string") return wallet.device.appName;
-    if (typeof wallet.name === "string") return wallet.name;
-    return "";
-  }
-
-  function setDisconnected() {
-    connectBtn.textContent = "Connect Wallet";
-    connectBtn.title = "";
-  }
-
-  function setConnected(wallet) {
-    const addr =
-      (wallet && wallet.account && wallet.account.address) ||
-      (tonConnectUI.account && tonConnectUI.account.address) ||
-      "";
-    const name = getWalletName(wallet);
-    connectBtn.textContent = addr || "Connected";
-    connectBtn.title = name ? `${name} - ${addr}` : addr;
-  }
-
-  tonConnectUI.onStatusChange((wallet) => {
-    if (wallet) setConnected(wallet);
-    else setDisconnected();
-  });
-
-  if (tonConnectUI.connected) {
-    setConnected({ account: tonConnectUI.account });
-  } else {
-    setDisconnected();
-  }
-
-  async function handleClick() {
-    if (tonConnectUI.connected) {
-      const ok = confirm("Disconnect wallet?");
-      if (!ok) return;
-      try {
-        await tonConnectUI.disconnect();
-      } catch (err) {
-        console.error(err);
-      }
-      return;
-    }
-    try {
-      await tonConnectUI.openModal();
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
-  connectBtn.addEventListener("click", handleClick);
 })();
