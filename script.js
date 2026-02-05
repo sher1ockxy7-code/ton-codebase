@@ -56,26 +56,6 @@ navButtons.forEach(btn => {
   });
 });
 
-const API_BASE = "https://slots-retreat-sized-webster.trycloudflare.com";
-
-async function tgLogin() {
-  const initData = window.Telegram?.WebApp?.initData || "";
-
-  const r = await fetch(API_BASE + "/auth/telegram", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ initData })
-  });
-
-  const data = await r.json();
-  console.log("LOGIN:", data);
-
-  if (data.token) localStorage.setItem("token", data.token);
-  return data;
-}
-
-tgLogin();
-
 // === РЕСУРСЫ ===
 let resources = {
   ton: 9999,
