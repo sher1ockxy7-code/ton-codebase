@@ -172,5 +172,5 @@ app.get("/me", auth, (req, res) => {
 });
 
 app.listen(PORT, () =>
-  console.log(`🚀 Server running on: https://profit-pcs-dylan-court.trycloudflare.com (port ${PORT})`)
+  console.log(`🚀 Server running on: https://slots-retreat-sized-webster.trycloudflare.com (port ${PORT})`)
 );

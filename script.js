@@ -12,7 +12,7 @@ navButtons.forEach(btn => {
   });
 });
 
-const API_BASE = "https://profit-pcs-dylan-court.trycloudflare.com";
+const API_BASE = "https://slots-retreat-sized-webster.trycloudflare.com";
 
 async function tgLogin() {
   const initData = window.Telegram?.WebApp?.initData || "";
