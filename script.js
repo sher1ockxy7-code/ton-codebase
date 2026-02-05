@@ -12,6 +12,33 @@ navButtons.forEach(btn => {
   });
 });
 
+const API_BASE = "https://profit-pcs-dylan-court.trycloudflare.com";
+
+async function tgLogin() {
+  const initData = window.Telegram?.WebApp?.initData || "";
+
+  // Если сайт открыт не в Telegram (обычный браузер) — initData пустой
+  if (!initData) {
+    console.warn("Telegram initData пустой — открой сайт через Telegram Mini App");
+    return null;
+  }
+
+  const r = await fetch(API_BASE + "/auth/telegram", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ initData })
+  });
+
+  const data = await r.json();
+  console.log("LOGIN:", data);
+
+  if (data.token) localStorage.setItem("token", data.token);
+  return data;
+}
+
+// запуск логина при старте
+tgLogin();
+
 // === РЕСУРСЫ ===
 let resources = {
   ton: 9999,
