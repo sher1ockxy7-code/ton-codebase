@@ -171,4 +171,6 @@ app.get("/me", auth, (req, res) => {
   res.json({ user: u, wallets });
 });
 
-app.listen(PORT, () => console.log("🚀 Server running on http://localhost:" + PORT));
+app.listen(PORT, () =>
+  console.log(`🚀 Server running on: https://profit-pcs-dylan-court.trycloudflare.com (port ${PORT})`)
+);

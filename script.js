@@ -1841,17 +1841,3 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   });
 })();
-async function tgLogin() {
-  const initData = window.Telegram?.WebApp?.initData || "";
-  const API_BASE = "https://profit-pcs-dylan-court.trycloudflare.com";
-
-const r = await fetch(API_BASE + "/auth/telegram", {
-
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ initData })
-  });
-  const data = await r.json();
-  console.log("LOGIN:", data);
-  if (data.token) localStorage.setItem("token", data.token);
-}
