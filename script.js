@@ -1,11 +1,17 @@
-const tg = window.Telegram?.WebApp;
+const tg =
+  window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
 if (tg) {
   tg.ready();
   tg.expand();
 }
 const API_BASE = "https://ton-codebase.onrender.com"; // или твой актуальный URL сервера
 async function tgLogin() {
-  const initData = window.Telegram?.WebApp?.initData || "";
+  const initData =
+    window.Telegram &&
+    window.Telegram.WebApp &&
+    window.Telegram.WebApp.initData
+      ? window.Telegram.WebApp.initData
+      : "";
   if (!initData) {
     alert("Открой приложение внутри Telegram (Mini App), initData пустой.");
     return;
@@ -28,7 +34,8 @@ async function tgLogin() {
   alert("Успешный вход! userId=" + data.userId);
   return data;
 }
-document.getElementById("btnLogin")?.addEventListener("click", tgLogin);
+const btnLogin = document.getElementById("btnLogin");
+if (btnLogin) btnLogin.addEventListener("click", tgLogin);
 async function loadMe() {
   const token = localStorage.getItem("token");
   if (!token) return null;
