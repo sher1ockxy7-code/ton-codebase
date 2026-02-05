@@ -2,8 +2,8 @@ const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
-const sqlite3 = require("sqlite3").verbose();
 require("dotenv").config();
+const { Pool } = require("pg");
 
 const app = express();
 app.use(cors());
@@ -13,51 +13,57 @@ const PORT = process.env.PORT || 8080;
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret";
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const DEPOSIT_ADDRESS = process.env.DEPOSIT_ADDRESS || "";
+const DATABASE_URL = process.env.DATABASE_URL;
 
 if (!BOT_TOKEN) {
-  console.error("❌ TELEGRAM_BOT_TOKEN is missing in environment variables");
+  console.error("❌ TELEGRAM_BOT_TOKEN is missing");
+  process.exit(1);
+}
+if (!DATABASE_URL) {
+  console.error("❌ DATABASE_URL is missing");
   process.exit(1);
 }
 
-// --- DB (sqlite3) ---
-const db = new sqlite3.Database("app.db");
+const pool = new Pool({
+  connectionString: DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+});
 
-// Create tables
-db.serialize(() => {
-  db.run(`
+async function initDb() {
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      telegram_id INTEGER UNIQUE NOT NULL,
+      id SERIAL PRIMARY KEY,
+      telegram_id BIGINT UNIQUE NOT NULL,
       username TEXT,
       first_name TEXT,
-      created_at TEXT NOT NULL,
-      last_seen_at TEXT NOT NULL
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
 
-  db.run(`
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS wallet_links (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
+      id SERIAL PRIMARY KEY,
+      user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       wallet_address TEXT NOT NULL,
-      connected_at TEXT NOT NULL,
-      is_active INTEGER NOT NULL DEFAULT 1,
+      connected_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
       UNIQUE(user_id, wallet_address)
     )
   `);
 
-  db.run(`
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS deposit_codes (
       code TEXT PRIMARY KEY,
-      user_id INTEGER NOT NULL,
-      created_at TEXT NOT NULL,
+      user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       used_tx_hash TEXT,
-      used_at TEXT
+      used_at TIMESTAMPTZ
     )
   `);
-});
+}
 
-// --- Telegram initData verification ---
+// Telegram initData verification
 function parseInitData(initData) {
   const params = new URLSearchParams(initData);
   const hash = params.get("hash");
@@ -100,7 +106,7 @@ function verifyTelegramInitData(initData) {
   return { ok: true, user };
 }
 
-// --- auth middleware ---
+// auth middleware
 function auth(req, res, next) {
   const token = (req.headers.authorization || "").replace("Bearer ", "");
   if (!token) return res.status(401).json({ error: "No token" });
@@ -115,8 +121,8 @@ function auth(req, res, next) {
 // health
 app.get("/", (req, res) => res.json({ status: "Server is working 🚀" }));
 
-// LOGIN via Telegram initData
-app.post("/auth/telegram", (req, res) => {
+// Telegram login -> JWT
+app.post("/auth/telegram", async (req, res) => {
   const { initData } = req.body;
   if (!initData) return res.status(400).json({ error: "initData required" });
 
@@ -124,100 +130,114 @@ app.post("/auth/telegram", (req, res) => {
   if (!v.ok) return res.status(401).json({ error: v.error });
 
   const tg = v.user;
-  const now = new Date().toISOString();
 
-  db.get("SELECT id FROM users WHERE telegram_id = ?", [tg.id], (err, row) => {
-    if (err) return res.status(500).json({ error: "DB error" });
+  try {
+    const now = new Date().toISOString();
 
-    const finish = (userId) => {
-      const token = jwt.sign(
-        { userId, telegramId: tg.id },
-        JWT_SECRET,
-        { expiresIn: "30d" }
+    const found = await pool.query(
+      "SELECT id FROM users WHERE telegram_id=$1",
+      [tg.id]
+    );
+
+    let userId;
+
+    if (found.rows.length === 0) {
+      const ins = await pool.query(
+        `INSERT INTO users (telegram_id, username, first_name, created_at, last_seen_at)
+         VALUES ($1,$2,$3,$4,$4) RETURNING id`,
+        [tg.id, tg.username || null, tg.first_name || null, now]
       );
-      res.json({ token, userId, telegramId: tg.id });
-    };
-
-    if (!row) {
-      db.run(
-        "INSERT INTO users (telegram_id, username, first_name, created_at, last_seen_at) VALUES (?, ?, ?, ?, ?)",
-        [tg.id, tg.username || null, tg.first_name || null, now, now],
-        function (err2) {
-          if (err2) return res.status(500).json({ error: "DB insert error" });
-          finish(this.lastID);
-        }
-      );
+      userId = ins.rows[0].id;
     } else {
-      db.run(
-        "UPDATE users SET last_seen_at = ? WHERE telegram_id = ?",
-        [now, tg.id],
-        (err2) => {
-          if (err2) return res.status(500).json({ error: "DB update error" });
-          finish(row.id);
-        }
-      );
+      userId = found.rows[0].id;
+      await pool.query("UPDATE users SET last_seen_at=$1 WHERE id=$2", [
+        now,
+        userId,
+      ]);
     }
-  });
+
+    const token = jwt.sign({ userId, telegramId: tg.id }, JWT_SECRET, {
+      expiresIn: "30d",
+    });
+    res.json({ token, userId, telegramId: tg.id });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "DB error" });
+  }
 });
 
-// Link wallet to user
-app.post("/wallet/link", auth, (req, res) => {
+// Link wallet
+app.post("/wallet/link", auth, async (req, res) => {
   const { walletAddress } = req.body;
-  if (!walletAddress) return res.status(400).json({ error: "walletAddress required" });
+  if (!walletAddress)
+    return res.status(400).json({ error: "walletAddress required" });
 
-  const now = new Date().toISOString();
-  db.run(
-    "INSERT OR IGNORE INTO wallet_links (user_id, wallet_address, connected_at, is_active) VALUES (?, ?, ?, 1)",
-    [req.user.userId, walletAddress, now],
-    (err) => {
-      if (err) return res.status(500).json({ error: "DB error" });
-      res.json({ ok: true });
-    }
-  );
+  try {
+    await pool.query(
+      `INSERT INTO wallet_links (user_id, wallet_address, connected_at, is_active)
+       VALUES ($1,$2,NOW(),TRUE)
+       ON CONFLICT (user_id, wallet_address) DO UPDATE SET is_active=TRUE`,
+      [req.user.userId, walletAddress]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "DB error" });
+  }
 });
 
-// Create deposit code for this user
-app.post("/deposit/request", auth, (req, res) => {
-  if (!DEPOSIT_ADDRESS) return res.status(500).json({ error: "DEPOSIT_ADDRESS not set" });
+// Create deposit code
+app.post("/deposit/request", auth, async (req, res) => {
+  if (!DEPOSIT_ADDRESS)
+    return res.status(500).json({ error: "DEPOSIT_ADDRESS not set" });
 
   const code = "DPT-" + crypto.randomBytes(4).toString("hex").toUpperCase();
-  const now = new Date().toISOString();
 
-  db.run(
-    "INSERT INTO deposit_codes (code, user_id, created_at) VALUES (?, ?, ?)",
-    [code, req.user.userId, now],
-    (err) => {
-      if (err) return res.status(500).json({ error: "DB error" });
+  try {
+    await pool.query(
+      "INSERT INTO deposit_codes (code, user_id, created_at) VALUES ($1,$2,NOW())",
+      [code, req.user.userId]
+    );
 
-      res.json({
-        depositAddress: DEPOSIT_ADDRESS,
-        depositCode: code,
-        instruction: "Отправь TON на depositAddress и вставь depositCode в комментарий (memo)."
-      });
-    }
-  );
+    res.json({
+      depositAddress: DEPOSIT_ADDRESS,
+      depositCode: code,
+      instruction:
+        "Отправь TON на depositAddress и вставь depositCode в комментарий (memo).",
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "DB error" });
+  }
 });
 
-// Debug: show current user + wallets
-app.get("/me", auth, (req, res) => {
-  db.get(
-    "SELECT id, telegram_id, username, first_name, created_at, last_seen_at FROM users WHERE id = ?",
-    [req.user.userId],
-    (err, user) => {
-      if (err) return res.status(500).json({ error: "DB error" });
+// Debug
+app.get("/me", auth, async (req, res) => {
+  try {
+    const u = await pool.query(
+      "SELECT id, telegram_id, username, first_name, created_at, last_seen_at FROM users WHERE id=$1",
+      [req.user.userId]
+    );
 
-      db.all(
-        "SELECT wallet_address, connected_at FROM wallet_links WHERE user_id = ? AND is_active = 1",
-        [req.user.userId],
-        (err2, wallets) => {
-          if (err2) return res.status(500).json({ error: "DB error" });
-          res.json({ user, wallets });
-        }
-      );
-    }
-  );
+    const w = await pool.query(
+      "SELECT wallet_address, connected_at FROM wallet_links WHERE user_id=$1 AND is_active=TRUE",
+      [req.user.userId]
+    );
+
+    res.json({ user: u.rows[0] || null, wallets: w.rows });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "DB error" });
+  }
 });
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log("🚀 Server running on http://localhost:" + PORT);
-});
+initDb()
+  .then(() => {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log("🚀 Server running on port " + PORT);
+    });
+  })
+  .catch((e) => {
+    console.error("❌ initDb failed", e);
+    process.exit(1);
+  });
