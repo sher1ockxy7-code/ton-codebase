@@ -1,8 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
-const Database = require("better-sqlite3");
 const crypto = require("crypto");
+const sqlite3 = require("sqlite3").verbose();
 require("dotenv").config();
 
 const app = express();
@@ -15,43 +15,47 @@ const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const DEPOSIT_ADDRESS = process.env.DEPOSIT_ADDRESS || "";
 
 if (!BOT_TOKEN) {
-  console.error("❌ TELEGRAM_BOT_TOKEN is missing in .env");
+  console.error("❌ TELEGRAM_BOT_TOKEN is missing in environment variables");
   process.exit(1);
 }
 
-// --- DB ---
-const db = new Database("app.db");
-db.pragma("journal_mode = WAL");
+// --- DB (sqlite3) ---
+const db = new sqlite3.Database("app.db");
 
-db.exec(`
-CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  telegram_id INTEGER UNIQUE NOT NULL,
-  username TEXT,
-  first_name TEXT,
-  created_at TEXT NOT NULL,
-  last_seen_at TEXT NOT NULL
-);
+// Create tables
+db.serialize(() => {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      telegram_id INTEGER UNIQUE NOT NULL,
+      username TEXT,
+      first_name TEXT,
+      created_at TEXT NOT NULL,
+      last_seen_at TEXT NOT NULL
+    )
+  `);
 
-CREATE TABLE IF NOT EXISTS wallet_links (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  wallet_address TEXT NOT NULL,
-  connected_at TEXT NOT NULL,
-  is_active INTEGER NOT NULL DEFAULT 1,
-  UNIQUE(user_id, wallet_address),
-  FOREIGN KEY(user_id) REFERENCES users(id)
-);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS wallet_links (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      wallet_address TEXT NOT NULL,
+      connected_at TEXT NOT NULL,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      UNIQUE(user_id, wallet_address)
+    )
+  `);
 
-CREATE TABLE IF NOT EXISTS deposit_codes (
-  code TEXT PRIMARY KEY,
-  user_id INTEGER NOT NULL,
-  created_at TEXT NOT NULL,
-  used_tx_hash TEXT,
-  used_at TEXT,
-  FOREIGN KEY(user_id) REFERENCES users(id)
-);
-`);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS deposit_codes (
+      code TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      created_at TEXT NOT NULL,
+      used_tx_hash TEXT,
+      used_at TEXT
+    )
+  `);
+});
 
 // --- Telegram initData verification ---
 function parseInitData(initData) {
@@ -71,8 +75,15 @@ function verifyTelegramInitData(initData) {
   const parsed = parseInitData(initData);
   if (!parsed) return { ok: false, error: "No hash" };
 
-  const secretKey = crypto.createHmac("sha256", "WebAppData").update(BOT_TOKEN).digest();
-  const computedHash = crypto.createHmac("sha256", secretKey).update(parsed.dataCheckString).digest("hex");
+  const secretKey = crypto
+    .createHmac("sha256", "WebAppData")
+    .update(BOT_TOKEN)
+    .digest();
+
+  const computedHash = crypto
+    .createHmac("sha256", secretKey)
+    .update(parsed.dataCheckString)
+    .digest("hex");
 
   if (computedHash !== parsed.hash) return { ok: false, error: "Bad hash" };
 
@@ -104,7 +115,7 @@ function auth(req, res, next) {
 // health
 app.get("/", (req, res) => res.json({ status: "Server is working 🚀" }));
 
-// 1) LOGIN via Telegram initData
+// LOGIN via Telegram initData
 app.post("/auth/telegram", (req, res) => {
   const { initData } = req.body;
   if (!initData) return res.status(400).json({ error: "initData required" });
@@ -115,62 +126,98 @@ app.post("/auth/telegram", (req, res) => {
   const tg = v.user;
   const now = new Date().toISOString();
 
-  const existing = db.prepare("SELECT * FROM users WHERE telegram_id=?").get(tg.id);
+  db.get("SELECT id FROM users WHERE telegram_id = ?", [tg.id], (err, row) => {
+    if (err) return res.status(500).json({ error: "DB error" });
 
-  let userId;
-  if (!existing) {
-    const info = db.prepare(
-      "INSERT INTO users (telegram_id, username, first_name, created_at, last_seen_at) VALUES (?, ?, ?, ?, ?)"
-    ).run(tg.id, tg.username || null, tg.first_name || null, now, now);
-    userId = info.lastInsertRowid;
-  } else {
-    db.prepare("UPDATE users SET last_seen_at=? WHERE telegram_id=?").run(now, tg.id);
-    userId = existing.id;
-  }
+    const finish = (userId) => {
+      const token = jwt.sign(
+        { userId, telegramId: tg.id },
+        JWT_SECRET,
+        { expiresIn: "30d" }
+      );
+      res.json({ token, userId, telegramId: tg.id });
+    };
 
-  const token = jwt.sign({ userId, telegramId: tg.id }, JWT_SECRET, { expiresIn: "30d" });
-  res.json({ token, userId, telegramId: tg.id });
+    if (!row) {
+      db.run(
+        "INSERT INTO users (telegram_id, username, first_name, created_at, last_seen_at) VALUES (?, ?, ?, ?, ?)",
+        [tg.id, tg.username || null, tg.first_name || null, now, now],
+        function (err2) {
+          if (err2) return res.status(500).json({ error: "DB insert error" });
+          finish(this.lastID);
+        }
+      );
+    } else {
+      db.run(
+        "UPDATE users SET last_seen_at = ? WHERE telegram_id = ?",
+        [now, tg.id],
+        (err2) => {
+          if (err2) return res.status(500).json({ error: "DB update error" });
+          finish(row.id);
+        }
+      );
+    }
+  });
 });
 
-// 2) Link wallet
+// Link wallet to user
 app.post("/wallet/link", auth, (req, res) => {
   const { walletAddress } = req.body;
   if (!walletAddress) return res.status(400).json({ error: "walletAddress required" });
 
   const now = new Date().toISOString();
-  db.prepare(
-    "INSERT OR IGNORE INTO wallet_links (user_id, wallet_address, connected_at, is_active) VALUES (?, ?, ?, 1)"
-  ).run(req.user.userId, walletAddress, now);
-
-  res.json({ ok: true });
+  db.run(
+    "INSERT OR IGNORE INTO wallet_links (user_id, wallet_address, connected_at, is_active) VALUES (?, ?, ?, 1)",
+    [req.user.userId, walletAddress, now],
+    (err) => {
+      if (err) return res.status(500).json({ error: "DB error" });
+      res.json({ ok: true });
+    }
+  );
 });
 
-// 3) Create deposit code for this user
+// Create deposit code for this user
 app.post("/deposit/request", auth, (req, res) => {
   if (!DEPOSIT_ADDRESS) return res.status(500).json({ error: "DEPOSIT_ADDRESS not set" });
 
   const code = "DPT-" + crypto.randomBytes(4).toString("hex").toUpperCase();
   const now = new Date().toISOString();
 
-  db.prepare("INSERT INTO deposit_codes (code, user_id, created_at) VALUES (?, ?, ?)")
-    .run(code, req.user.userId, now);
+  db.run(
+    "INSERT INTO deposit_codes (code, user_id, created_at) VALUES (?, ?, ?)",
+    [code, req.user.userId, now],
+    (err) => {
+      if (err) return res.status(500).json({ error: "DB error" });
 
-  res.json({
-    depositAddress: DEPOSIT_ADDRESS,
-    depositCode: code,
-    instruction: "Отправь TON на depositAddress и вставь depositCode в комментарий (memo)."
-  });
+      res.json({
+        depositAddress: DEPOSIT_ADDRESS,
+        depositCode: code,
+        instruction: "Отправь TON на depositAddress и вставь depositCode в комментарий (memo)."
+      });
+    }
+  );
 });
 
-// debug
+// Debug: show current user + wallets
 app.get("/me", auth, (req, res) => {
-  const u = db.prepare("SELECT id, telegram_id, username, first_name, created_at, last_seen_at FROM users WHERE id=?")
-    .get(req.user.userId);
-  const wallets = db.prepare("SELECT wallet_address, connected_at FROM wallet_links WHERE user_id=? AND is_active=1")
-    .all(req.user.userId);
-  res.json({ user: u, wallets });
+  db.get(
+    "SELECT id, telegram_id, username, first_name, created_at, last_seen_at FROM users WHERE id = ?",
+    [req.user.userId],
+    (err, user) => {
+      if (err) return res.status(500).json({ error: "DB error" });
+
+      db.all(
+        "SELECT wallet_address, connected_at FROM wallet_links WHERE user_id = ? AND is_active = 1",
+        [req.user.userId],
+        (err2, wallets) => {
+          if (err2) return res.status(500).json({ error: "DB error" });
+          res.json({ user, wallets });
+        }
+      );
+    }
+  );
 });
 
-app.listen(PORT, () =>
-  console.log(`🚀 Server running on: https://slots-retreat-sized-webster.trycloudflare.com (port ${PORT})`)
-);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log("🚀 Server running on http://localhost:" + PORT);
+});
