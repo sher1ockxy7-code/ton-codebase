@@ -19,7 +19,6 @@ async function tgLogin() {
 
   const data = await r.json();
   console.log("LOGIN:", data);
-
   if (!r.ok) {
     alert("Login error: " + (data.error || r.status));
     return;
