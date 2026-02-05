@@ -17,12 +17,6 @@ const API_BASE = "https://profit-pcs-dylan-court.trycloudflare.com";
 async function tgLogin() {
   const initData = window.Telegram?.WebApp?.initData || "";
 
-  // Если сайт открыт не в Telegram (обычный браузер) — initData пустой
-  if (!initData) {
-    console.warn("Telegram initData пустой — открой сайт через Telegram Mini App");
-    return null;
-  }
-
   const r = await fetch(API_BASE + "/auth/telegram", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -36,7 +30,6 @@ async function tgLogin() {
   return data;
 }
 
-// запуск логина при старте
 tgLogin();
 
 // === РЕСУРСЫ ===
@@ -1850,7 +1843,10 @@ document.addEventListener("DOMContentLoaded", function() {
 })();
 async function tgLogin() {
   const initData = window.Telegram?.WebApp?.initData || "";
-  const r = await fetch("http://localhost:8080/auth/telegram", {
+  const API_BASE = "https://profit-pcs-dylan-court.trycloudflare.com";
+
+const r = await fetch(API_BASE + "/auth/telegram", {
+
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ initData })
