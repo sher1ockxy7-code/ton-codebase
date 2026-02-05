@@ -1,3 +1,48 @@
+const tg = window.Telegram?.WebApp;
+if (tg) {
+  tg.ready();
+  tg.expand();
+}
+const API_BASE = "https://ton-codebase.onrender.com"; // или твой актуальный URL сервера
+async function tgLogin() {
+  const initData = window.Telegram?.WebApp?.initData || "";
+  if (!initData) {
+    alert("Открой приложение внутри Telegram (Mini App), initData пустой.");
+    return;
+  }
+
+  const r = await fetch(API_BASE + "/auth/telegram", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ initData }),
+  });
+
+  const data = await r.json();
+  console.log("LOGIN:", data);
+
+  if (!r.ok) {
+    alert("Login error: " + (data.error || r.status));
+    return;
+  }
+
+  localStorage.setItem("token", data.token);
+  alert("Успешный вход! userId=" + data.userId);
+  return data;
+}
+document.getElementById("btnLogin")?.addEventListener("click", tgLogin);
+async function loadMe() {
+  const token = localStorage.getItem("token");
+  if (!token) return null;
+
+  const r = await fetch(API_BASE + "/me", {
+    headers: { Authorization: "Bearer " + token },
+  });
+
+  const data = await r.json();
+  console.log("ME:", data);
+  return data;
+}
+
 // === НАВИГАЦИЯ ===
 const navButtons = document.querySelectorAll('.nav-btn');
 const pages = document.querySelectorAll('.page');
