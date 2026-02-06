@@ -19,6 +19,10 @@ body {
   display: none;
 }
 
+#appRoot {
+  width: 100%;
+}
+
 #loginGate {
   position: fixed;
   inset: 0;
@@ -352,6 +356,7 @@ body {
   gap: 10px;
   margin-top: 10px;
   flex-wrap: wrap;
+  width: 100%;
 }
 
 .wallet-action {
@@ -362,10 +367,23 @@ body {
   color: white;
   font-weight: 600;
   cursor: pointer;
+  flex: 1 1 140px;
+  min-width: 140px;
 }
 
 .wallet-action#withdrawBtn {
   background: #c21fad;
+}
+
+@media (max-width: 420px) {
+  .wallet-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .wallet-action {
+    width: 100%;
+  }
 }
 
 .wallet-modal {
