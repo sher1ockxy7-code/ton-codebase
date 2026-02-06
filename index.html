@@ -8,7 +8,15 @@
 </head>
 <body>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <button id="btnLogin">Войти через Telegram</button>
+  <div id="loginGate" class="login-gate">
+    <div class="login-card">
+      <div class="login-title">Вход</div>
+      <div class="login-text">Чтобы продолжить, войдите через Telegram.</div>
+      <button id="btnLogin" class="login-btn">Войти через Telegram</button>
+    </div>
+  </div>
+
+  <div id="appRoot" class="app-hidden">
   <!-- Верхняя панель --> 
   <div class="top-bar">
     <div class="resource">
@@ -432,9 +440,10 @@
       <div class="tool-actions">
         <button id="startTool" type="button" data-action="start" onclick="window.startProductionAtIndex && window.startProductionAtIndex(parseInt(document.getElementById('toolModal').dataset.currentIndex || '', 10))">🚀 Запустить</button>
         <button id="upgradeTool" type="button" data-action="upgrade" onclick="window.__upgradeToolClick && window.__upgradeToolClick()">⤴️ Улучшить</button>
-        <button id="closeTool">Закрыть</button>
+      <button id="closeTool">Закрыть</button>
       </div>
     </div>
+  </div>
   </div>
 
   <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>

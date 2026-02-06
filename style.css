@@ -14,6 +14,69 @@ body {
   min-height: 100vh;
 }
 
+/* Login gate */
+#appRoot.app-hidden {
+  display: none;
+}
+
+#loginGate {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 17, 27, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 3000;
+}
+
+#loginGate.hidden {
+  display: none;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  background: #122033;
+  border: 1px solid #1e2e4a;
+  border-radius: 16px;
+  padding: 24px;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+}
+
+.login-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.login-text {
+  font-size: 14px;
+  color: #cbd5e1;
+  margin-bottom: 16px;
+}
+
+.login-btn {
+  width: 100%;
+  background: #229ed9;
+  border: none;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.2s ease;
+}
+
+.login-btn:active {
+  transform: scale(0.98);
+}
+
+.login-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 /* Верхняя панель */
 .top-bar {
   display: flex;

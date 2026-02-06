@@ -5,6 +5,21 @@ if (tg) {
   tg.expand();
 }
 const API_BASE = "https://ton-codebase.onrender.com"; // или твой актуальный URL сервера
+
+const loginGate = document.getElementById("loginGate");
+const appRoot = document.getElementById("appRoot");
+
+function setLoginGateVisible(isVisible) {
+  if (loginGate) loginGate.classList.toggle("hidden", !isVisible);
+  if (appRoot) appRoot.classList.toggle("app-hidden", isVisible);
+}
+
+function hasAuthToken() {
+  return Boolean(localStorage.getItem("token"));
+}
+
+setLoginGateVisible(!hasAuthToken());
+
 async function tgLogin() {
   const initData =
     window.Telegram &&
@@ -32,10 +47,19 @@ async function tgLogin() {
 
   localStorage.setItem("token", data.token);
   alert("Успешный вход! userId=" + data.userId);
+  setLoginGateVisible(false);
   return data;
 }
 const btnLogin = document.getElementById("btnLogin");
-if (btnLogin) btnLogin.addEventListener("click", tgLogin);
+if (btnLogin)
+  btnLogin.addEventListener("click", async () => {
+    btnLogin.disabled = true;
+    try {
+      await tgLogin();
+    } finally {
+      btnLogin.disabled = false;
+    }
+  });
 async function loadMe() {
   const token = localStorage.getItem("token");
   if (!token) return null;
